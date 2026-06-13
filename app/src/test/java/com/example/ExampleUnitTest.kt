@@ -43,25 +43,51 @@ class ExampleUnitTest {
 
   @Test
   fun testExcelParser() {
-    val workbook = org.apache.poi.xssf.usermodel.XSSFWorkbook()
-    val sheet = workbook.createSheet("Sheet 1")
-    val headerRow = sheet.createRow(0)
-    headerRow.createCell(0).setCellValue("No")
-    headerRow.createCell(1).setCellValue("Nama Warga")
-    headerRow.createCell(2).setCellValue("RT")
-    headerRow.createCell(3).setCellValue("No Rumah")
+    val sharedStringsXml = """
+      <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+      <sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="5" uniqueCount="5">
+          <si><t>No</t></si>
+          <si><t>Nama Warga</t></si>
+          <si><t>RT</t></si>
+          <si><t>No Rumah</t></si>
+          <si><t>Ahmad</t></si>
+      </sst>
+    """.trimIndent()
 
-    val dataRow = sheet.createRow(1)
-    dataRow.createCell(0).setCellValue(1.0)
-    dataRow.createCell(1).setCellValue("Ahmad")
-    dataRow.createCell(2).setCellValue(3.0)
-    dataRow.createCell(3).setCellValue("012")
+    val sheetXml = """
+      <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+      <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+          <sheetData>
+              <row r="1">
+                  <c r="A1" t="s"><v>0</v></c>
+                  <c r="B1" t="s"><v>1</v></c>
+                  <c r="C1" t="s"><v>2</v></c>
+                  <c r="D1" t="s"><v>3</v></c>
+              </row>
+              <row r="2">
+                  <c r="A2"><v>1</v></c>
+                  <c r="B2" t="s"><v>4</v></c>
+                  <c r="C2"><v>3</v></c>
+                  <c r="D2"><v>012</v></c>
+              </row>
+          </sheetData>
+      </worksheet>
+    """.trimIndent()
 
-    val outputStream = java.io.ByteArrayOutputStream()
-    workbook.write(outputStream)
-    workbook.close()
+    val bos = java.io.ByteArrayOutputStream()
+    val zos = java.util.zip.ZipOutputStream(bos)
+    
+    zos.putNextEntry(java.util.zip.ZipEntry("xl/sharedStrings.xml"))
+    zos.write(sharedStringsXml.toByteArray())
+    zos.closeEntry()
 
-    val inputStream = java.io.ByteArrayInputStream(outputStream.toByteArray())
+    zos.putNextEntry(java.util.zip.ZipEntry("xl/worksheets/sheet1.xml"))
+    zos.write(sheetXml.toByteArray())
+    zos.closeEntry()
+
+    zos.close()
+
+    val inputStream = java.io.ByteArrayInputStream(bos.toByteArray())
     val parsedList = com.example.util.ExcelParser.parseWargaExcel(inputStream)
 
     assertEquals(1, parsedList.size)
