@@ -33,6 +33,9 @@ class JimpitanViewModel(
 
     val userRole = MutableStateFlow<String?>(null)
 
+    private val _isSyncing = MutableStateFlow(false)
+    val isSyncing = _isSyncing.asStateFlow()
+
     private fun getTodayDateStr(): String {
         val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
         return sdf.format(java.util.Date())
@@ -117,10 +120,28 @@ class JimpitanViewModel(
         }
     }
 
-    fun syncNow() {
+    fun addPetugas(email: String, nama: String, pass: String, onSuccess: () -> Unit, onError: () -> Unit) {
         viewModelScope.launch {
-            repository.fetchWarga()
-            repository.syncPending()
+            val success = repository.savePetugas(email, nama, pass)
+            if (success) {
+                onSuccess()
+            } else {
+                onError()
+            }
+        }
+    }
+
+    fun syncNow() {
+        _isSyncing.value = true
+        viewModelScope.launch {
+            try {
+                repository.fetchWarga()
+                repository.syncPending()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                _isSyncing.value = false
+            }
         }
     }
 

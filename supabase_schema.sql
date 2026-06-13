@@ -145,3 +145,14 @@ VALUES
     ('WRG009', 'Anton', '03', '01', '010', 'Jl. Mawar No. 10', true),
     ('WRG010', 'Karyanto', '03', '01', '011', 'Jl. Mawar No. 11', true)
 ON CONFLICT (qr_uuid) DO NOTHING;
+
+-- 11. DEFAULT ADMIN ACCOUNT INSTRUCTIONS
+-- Akun admin bawaan secara luring telah diatur di dalam aplikasi Android:
+-- Email: admin@gempala.com
+-- Password: gempala2026
+-- 
+-- Untuk membuat akun admin ini secara daring di Supabase Auth, silakan gunakan
+-- menu "Users" -> "Add User" -> "Create User" di Supabase Dashboard dengan 
+-- email dan password di atas. Secara otomatis trigger 'on_auth_user_created'
+-- akan mendaftarkan profil pengguna tersebut sebagai ADMIN.
+

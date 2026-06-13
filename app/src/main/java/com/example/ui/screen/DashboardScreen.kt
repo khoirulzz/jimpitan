@@ -34,6 +34,7 @@ fun DashboardScreen(
     val todayPaidCount by viewModel.todayPaidCount.collectAsState()
     val todayArrearsCount by viewModel.todayArrearsCount.collectAsState()
     val isConnected by viewModel.isConnected.collectAsState()
+    val isSyncing by viewModel.isSyncing.collectAsState()
 
     val GreenPrimary = Color(0xFF138A4A)
     val GreenDark = Color(0xFF0F6E3B)
@@ -328,6 +329,9 @@ fun DashboardScreen(
                     
                     Spacer(modifier = Modifier.height(24.dp))
                 }
+            }
+            if (isSyncing) {
+                com.example.ui.components.SupabaseLoader()
             }
         }
     }

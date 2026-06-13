@@ -62,12 +62,25 @@ data class AuthResponse(
     val user: UserDto
 )
 
+@JsonClass(generateAdapter = true)
+data class SignUpRequest(
+    val email: String,
+    val password: String,
+    val data: Map<String, String>
+)
+
 interface SupabaseService {
 
     @POST("auth/v1/token?grant_type=password")
     suspend fun login(
         @Header("apikey") apiKey: String,
         @Body req: AuthRequest
+    ): AuthResponse
+
+    @POST("auth/v1/signup")
+    suspend fun signUp(
+        @Header("apikey") apiKey: String,
+        @Body req: SignUpRequest
     ): AuthResponse
 
     @GET("rest/v1/profiles?select=*")

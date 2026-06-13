@@ -13,6 +13,8 @@ import com.example.ui.screen.PaymentScreen
 import com.example.ui.screen.ScanScreen
 import com.example.ui.viewmodel.JimpitanViewModel
 
+import com.example.ui.screen.SplashScreen
+
 @Composable
 fun AppNavGraph(
     modifier: Modifier = Modifier,
@@ -21,9 +23,18 @@ fun AppNavGraph(
 ) {
     NavHost(
         navController = navController,
-        startDestination = "login",
+        startDestination = "splash",
         modifier = modifier
     ) {
+        composable("splash") {
+            SplashScreen(
+                onAnimationFinished = {
+                    navController.navigate("login") {
+                        popUpTo("splash") { inclusive = true }
+                    }
+                }
+            )
+        }
         composable("login") {
             LoginScreen(
                 viewModel = viewModel,

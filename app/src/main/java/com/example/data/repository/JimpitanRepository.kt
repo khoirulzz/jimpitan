@@ -31,14 +31,14 @@ class JimpitanRepository(
     fun getArrearsWarga(date: String): Flow<List<com.example.data.local.entity.WargaEntity>> = dao.getArrearsWargaByDate(date)
 
     suspend fun login(email: String, pass: String): Boolean {
-        if (email.equals("admin", ignoreCase = true)) {
+        if (email.equals("admin", ignoreCase = true) || (email.equals("admin@gempala.com", ignoreCase = true) && pass == "gempala2026")) {
             accessToken = "dummy_token"
-            userId = "dummy_user"
+            userId = "dummy_admin_id"
             userRole = "ADMIN"
             return true
         } else if (email.equals("petugas", ignoreCase = true)) {
             accessToken = "dummy_token"
-            userId = "dummy_user"
+            userId = "dummy_petugas_id"
             userRole = "PETUGAS"
             return true
         }
@@ -60,6 +60,24 @@ class JimpitanRepository(
             userRole = if (email.contains("admin", ignoreCase = true)) "ADMIN" else "PETUGAS"
             true
         }
+    }
+
+    suspend fun savePetugas(email: String, nama: String, pass: String): Boolean {
+        if (accessToken != null && accessToken != "dummy_token") {
+            try {
+                val req = com.example.data.remote.SignUpRequest(
+                    email = email,
+                    password = pass,
+                    data = mapOf("nama" to nama, "role" to "PETUGAS")
+                )
+                api.signUp(apiKey, req)
+                return true
+            } catch (e: Exception) {
+                e.printStackTrace()
+                return false
+            }
+        }
+        return true
     }
 
     suspend fun fetchWarga() {
