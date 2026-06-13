@@ -38,7 +38,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.example.data.local.entity.WargaEntity
 import com.example.ui.viewmodel.JimpitanViewModel
-import qrcode.QRCode
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
+import io.github.g0dkar.qrcode.QRCode
 import java.io.OutputStream
 import java.util.Locale
 
@@ -580,12 +581,9 @@ fun QrCodeDisplayDialog(
 
 // QR Code generation drawing centering details on bitmap
 fun generateQrCodeBitmap(content: String, name: String, idCode: String, size: Int = 600): Bitmap {
-    val qrCode = QRCode.ofSquares().build(content)
-    val grid = qrCode.rawLayout()
-    val gridWidth = grid.size
-    val gridHeight = grid[0].size
+    val pngBytes = QRCode(content).render().getBytes()
+    val qrBitmap = android.graphics.BitmapFactory.decodeByteArray(pngBytes, 0, pngBytes.size)
 
-    val qrHeight = size
     val extraHeight = 120
     val bitmap = Bitmap.createBitmap(size, size + extraHeight, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
@@ -593,26 +591,10 @@ fun generateQrCodeBitmap(content: String, name: String, idCode: String, size: In
     // Draw White Background
     canvas.drawColor(AndroidColor.WHITE)
 
-    // Draw QR Blocks
-    val paintBlock = Paint().apply {
-        color = AndroidColor.BLACK
-    }
-    val blockWidth = size.toFloat() / gridWidth
-    val blockHeight = qrHeight.toFloat() / gridHeight
-
-    for (y in 0 until gridHeight) {
-        for (x in 0 until gridWidth) {
-            if (grid[y][x]) {
-                canvas.drawRect(
-                    x * blockWidth,
-                    y * blockHeight,
-                    (x + 1) * blockWidth,
-                    (y + 1) * blockHeight,
-                    paintBlock
-                )
-            }
-        }
-    }
+    // Draw the QR Code scaled to 'size'
+    val srcRect = android.graphics.Rect(0, 0, qrBitmap.width, qrBitmap.height)
+    val dstRect = android.graphics.Rect(0, 0, size, size)
+    canvas.drawBitmap(qrBitmap, srcRect, dstRect, null)
 
     // Draw text (name and ID) at the bottom
     val paintTextName = Paint().apply {
@@ -620,7 +602,7 @@ fun generateQrCodeBitmap(content: String, name: String, idCode: String, size: In
         textSize = 28f
         isAntiAlias = true
         textAlign = Paint.Align.CENTER
-        fontWeight = FontWeight.Bold.value
+        isFakeBoldText = true
     }
     
     val paintTextId = Paint().apply {
@@ -659,4 +641,109 @@ fun saveQrToGallery(context: Context, bitmap: Bitmap, fileName: String): Boolean
         e.printStackTrace()
         false
     }
+}
+
+@Composable
+fun ArrearsWargaItem(warga: WargaEntity, GreenPrimary: Color) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text(warga.nama, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.DarkGray)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text("Rumah: ${warga.nomorRumah} | RT ${warga.rt} RW ${warga.rw}", fontSize = 12.sp, color = Color.Gray)
+            }
+            Icon(
+                Icons.Outlined.WarningAmber,
+                contentDescription = "Tunggakan",
+                tint = Color.Red,
+                modifier = Modifier.size(28.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun AddWargaDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String, String, String, String, String) -> Unit,
+    GreenPrimary: Color
+) {
+    var nama by remember { mutableStateOf("") }
+    var rt by remember { mutableStateOf("") }
+    var rw by remember { mutableStateOf("01") }
+    var nomorRumah by remember { mutableStateOf("") }
+    var alamat by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Tambah Warga", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = nama,
+                    onValueChange = { nama = it },
+                    label = { Text("Nama") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = rt,
+                        onValueChange = { rt = it },
+                        label = { Text("RT") },
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = rw,
+                        onValueChange = { rw = it },
+                        label = { Text("RW") },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                OutlinedTextField(
+                    value = nomorRumah,
+                    onValueChange = { nomorRumah = it },
+                    label = { Text("No Rumah") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = alamat,
+                    onValueChange = { alamat = it },
+                    label = { Text("Alamat") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (nama.isNotBlank() && rt.isNotBlank() && nomorRumah.isNotBlank()) {
+                        onConfirm(nama, rt, rw, nomorRumah, alamat)
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)
+            ) {
+                Text("Simpan", color = Color.White)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Batal", color = Color.Gray)
+            }
+        }
+    )
 }
