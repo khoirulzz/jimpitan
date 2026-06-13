@@ -1,0 +1,8 @@
+{
+  "name": "Jimpitan Digital",
+  "description": "Aplikasi pencatatan iuran harian warga berbasis Android dengan arsitektur Offline First.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
