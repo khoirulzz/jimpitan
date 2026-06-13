@@ -40,4 +40,37 @@ class ExampleUnitTest {
 
     assertEquals(listOf("2026-06-11", "2026-06-12", "2026-06-13", "2026-06-14"), results)
   }
+
+  @Test
+  fun testExcelParser() {
+    val workbook = org.apache.poi.xssf.usermodel.XSSFWorkbook()
+    val sheet = workbook.createSheet("Sheet 1")
+    val headerRow = sheet.createRow(0)
+    headerRow.createCell(0).setCellValue("No")
+    headerRow.createCell(1).setCellValue("Nama Warga")
+    headerRow.createCell(2).setCellValue("RT")
+    headerRow.createCell(3).setCellValue("No Rumah")
+
+    val dataRow = sheet.createRow(1)
+    dataRow.createCell(0).setCellValue(1.0)
+    dataRow.createCell(1).setCellValue("Ahmad")
+    dataRow.createCell(2).setCellValue(3.0)
+    dataRow.createCell(3).setCellValue("012")
+
+    val outputStream = java.io.ByteArrayOutputStream()
+    workbook.write(outputStream)
+    workbook.close()
+
+    val inputStream = java.io.ByteArrayInputStream(outputStream.toByteArray())
+    val parsedList = com.example.util.ExcelParser.parseWargaExcel(inputStream)
+
+    assertEquals(1, parsedList.size)
+    val warga = parsedList[0]
+    assertEquals("Ahmad", warga.nama)
+    assertEquals("03", warga.rt) // formatted to 2 digits
+    assertEquals("01", warga.rw) // default rw
+    assertEquals("012", warga.nomorRumah)
+    assertEquals("Jl. Jimpitan No. 012", warga.alamat)
+    assertTrue(warga.isActive)
+  }
 }

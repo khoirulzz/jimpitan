@@ -131,6 +131,45 @@ class JimpitanViewModel(
         }
     }
 
+    fun importWargaFromExcel(
+        uri: android.net.Uri,
+        context: android.content.Context,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        _isSyncing.value = true
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val inputStream = context.contentResolver.openInputStream(uri)
+                if (inputStream != null) {
+                    val parsedList = com.example.util.ExcelParser.parseWargaExcel(inputStream)
+                    if (parsedList.isNotEmpty()) {
+                        repository.saveWargaList(parsedList)
+                        repository.fetchWarga()
+                        viewModelScope.launch(kotlinx.coroutines.Dispatchers.Main) {
+                            onSuccess()
+                        }
+                    } else {
+                        viewModelScope.launch(kotlinx.coroutines.Dispatchers.Main) {
+                            onError("Format Excel tidak cocok atau kosong.")
+                        }
+                    }
+                } else {
+                    viewModelScope.launch(kotlinx.coroutines.Dispatchers.Main) {
+                        onError("Gagal membuka berkas Excel.")
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                viewModelScope.launch(kotlinx.coroutines.Dispatchers.Main) {
+                    onError("Terjadi kesalahan: ${e.localizedMessage}")
+                }
+            } finally {
+                _isSyncing.value = false
+            }
+        }
+    }
+
     fun syncNow() {
         _isSyncing.value = true
         viewModelScope.launch {

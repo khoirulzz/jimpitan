@@ -165,6 +165,39 @@ class JimpitanRepository(
         return true
     }
 
+    suspend fun saveWargaList(wargaList: List<com.example.data.local.entity.WargaEntity>): Boolean {
+        val startCount = dao.getWargaCount()
+        val processedList = wargaList.mapIndexed { index, warga ->
+            warga.copy(
+                qrUuid = "WRG" + String.format(Locale.getDefault(), "%03d", startCount + index + 1)
+            )
+        }
+        dao.insertWargaList(processedList)
+
+        if (accessToken != null && accessToken != "dummy_token") {
+            val authHeader = "Bearer $accessToken"
+            for (w in processedList) {
+                try {
+                    val dto = com.example.data.remote.WargaDto(
+                        id = w.id,
+                        qr_uuid = w.qrUuid,
+                        nama = w.nama,
+                        rt = w.rt,
+                        rw = w.rw,
+                        nomor_rumah = w.nomorRumah,
+                        alamat = w.alamat,
+                        is_active = w.isActive,
+                        updated_at = ""
+                    )
+                    api.insertWarga(apiKey, authHeader, req = dto)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+        return true
+    }
+
     suspend fun savePembayaran(wargaId: String, nominal: Int) {
         val coverageDays = nominal / 500
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())

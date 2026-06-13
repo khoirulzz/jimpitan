@@ -34,6 +34,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import com.example.data.local.entity.WargaEntity
 import com.example.ui.viewmodel.JimpitanViewModel
 import qrcode.QRCode
@@ -58,6 +60,23 @@ fun AdminDashboardScreen(
     var showAddPetugasDialog by remember { mutableStateOf(false) }
     
     var selectedWargaForQr by remember { mutableStateOf<WargaEntity?>(null) }
+
+    val excelPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: android.net.Uri? ->
+        if (uri != null) {
+            viewModel.importWargaFromExcel(
+                uri = uri,
+                context = context,
+                onSuccess = {
+                    Toast.makeText(context, "Berhasil mengimpor data warga!", Toast.LENGTH_SHORT).show()
+                },
+                onError = { error ->
+                    Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+                }
+            )
+        }
+    }
 
     val GreenPrimary = Color(0xFF138A4A)
     val GreenDark = Color(0xFF0F6E3B)
@@ -184,7 +203,14 @@ fun AdminDashboardScreen(
                 ) {
                     when (selectedTab) {
                         0 -> ArrearsTabContent(arrearsWarga, GreenPrimary)
-                        1 -> CitizensTabContent(wargaList, GreenPrimary) { selectedWargaForQr = it }
+                        1 -> CitizensTabContent(
+                            wargaList = wargaList,
+                            GreenPrimary = GreenPrimary,
+                            onImportExcel = {
+                                excelPickerLauncher.launch("*/*")
+                            },
+                            onShowQr = { selectedWargaForQr = it }
+                        )
                         2 -> OfficersTabContent(GreenPrimary)
                     }
                 }
@@ -268,47 +294,88 @@ fun ArrearsTabContent(arrearsWarga: List<WargaEntity>, GreenPrimary: Color) {
 }
 
 @Composable
-fun CitizensTabContent(wargaList: List<WargaEntity>, GreenPrimary: Color, onShowQr: (WargaEntity) -> Unit) {
-    if (wargaList.isEmpty()) {
-        Box(
+fun CitizensTabContent(
+    wargaList: List<WargaEntity>,
+    GreenPrimary: Color,
+    onImportExcel: () -> Unit,
+    onShowQr: (WargaEntity) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        Card(
             modifier = Modifier
-                .fillMaxSize()
-                .background(Color.White, RoundedCornerShape(24.dp)),
-            contentAlignment = Alignment.Center
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+            colors = CardDefaults.cardColors(containerColor = GreenPrimary.copy(alpha = 0.08f)),
+            shape = RoundedCornerShape(12.dp)
         ) {
-            Text("Data warga kosong. Tambah data warga baru.", color = Color.Gray, textAlign = TextAlign.Center)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onImportExcel() }
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.UploadFile,
+                    contentDescription = "Import Excel",
+                    tint = GreenPrimary,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Impor Data Warga dari Excel",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp,
+                    color = GreenPrimary
+                )
+            }
         }
-    } else {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(wargaList) { warga ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onShowQr(warga) },
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-                ) {
-                    Row(
+
+        if (wargaList.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .weight(1f)
+                    .background(Color.White, RoundedCornerShape(24.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Data warga kosong. Tambah data warga baru atau impor dari Excel.", color = Color.Gray, textAlign = TextAlign.Center)
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .weight(1f),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(wargaList) { warga ->
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                            .clickable { onShowQr(warga) },
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                     ) {
-                        Column {
-                            Text(warga.nama, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.DarkGray)
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text("Rumah: ${warga.nomorRumah} | RT ${warga.rt} RW ${warga.rw}", fontSize = 12.sp, color = Color.Gray)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text(warga.nama, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.DarkGray)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text("Rumah: ${warga.nomorRumah} | RT ${warga.rt} RW ${warga.rw}", fontSize = 12.sp, color = Color.Gray)
+                            }
+                            Icon(
+                                Icons.Default.QrCode,
+                                contentDescription = "Show QR",
+                                tint = GreenPrimary,
+                                modifier = Modifier.size(28.dp)
+                            )
                         }
-                        Icon(
-                            Icons.Default.QrCode,
-                            contentDescription = "Show QR",
-                            tint = GreenPrimary,
-                            modifier = Modifier.size(28.dp)
-                        )
                     }
                 }
             }

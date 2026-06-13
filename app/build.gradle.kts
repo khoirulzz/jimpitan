@@ -28,12 +28,6 @@ android {
       keyAlias = "upload"
       keyPassword = System.getenv("KEY_PASSWORD") ?: "gempala2026"
     }
-    create("debugConfig") {
-      storeFile = file("${rootDir}/debug.keystore")
-      storePassword = "android"
-      keyAlias = "androiddebugkey"
-      keyPassword = "android"
-    }
   }
 
   buildTypes {
@@ -44,7 +38,7 @@ android {
       signingConfig = signingConfigs.getByName("release")
     }
     debug {
-      signingConfig = signingConfigs.getByName("debugConfig")
+      // Fallback to default Android debug key
     }
   }
   compileOptions {
@@ -68,6 +62,8 @@ secrets {
 // Some unused dependencies are commented out below instead of being removed.
 // This makes it easy to add them back in the future if needed.
 dependencies {
+  implementation("org.apache.poi:poi:3.17")
+  implementation("org.apache.poi:poi-ooxml:3.17")
   implementation("io.github.g0dkar:qrcode-kotlin:3.2.0")
   implementation("androidx.work:work-runtime-ktx:2.9.1")
   implementation(platform(libs.androidx.compose.bom))
