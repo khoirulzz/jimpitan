@@ -214,4 +214,134 @@ object PdfExporter {
             false
         }
     }
+
+    /**
+     * Generate laporan Buku Kas sebagai PDF dan simpan ke Downloads/Jimpitan/.
+     * Returns true jika berhasil.
+     */
+    fun exportBukuKasPdf(
+        context: Context,
+        pengeluaranList: List<com.example.data.local.entity.PengeluaranEntity>,
+        totalPemasukan: Int,
+        totalPengeluaran: Int,
+        judulLaporan: String = "Laporan Buku Kas RT 03 / RW 01"
+    ): Boolean {
+        return try {
+            val pdfDoc = PdfDocument()
+            val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create() // A4
+            val page = pdfDoc.startPage(pageInfo)
+            val canvas = page.canvas
+
+            val paintTitle = Paint().apply {
+                textSize = 18f
+                isFakeBoldText = true
+                color = android.graphics.Color.parseColor("#138A4A")
+            }
+            val paintHeader = Paint().apply {
+                textSize = 11f
+                isFakeBoldText = true
+                color = android.graphics.Color.DKGRAY
+            }
+            val paintBody = Paint().apply {
+                textSize = 10f
+                color = android.graphics.Color.DKGRAY
+            }
+            val paintLine = Paint().apply {
+                color = android.graphics.Color.LTGRAY
+                strokeWidth = 1f
+            }
+
+            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            val displaySdf = SimpleDateFormat("dd MMM yyyy", Locale("id", "ID"))
+            val now = displaySdf.format(Date())
+
+            var y = 60f
+            val marginL = 40f
+            val marginR = 555f
+
+            // Title
+            canvas.drawText(judulLaporan, marginL, y, paintTitle)
+            y += 20f
+            canvas.drawText("Dicetak: $now", marginL, y, paintBody)
+            y += 16f
+            canvas.drawLine(marginL, y, marginR, y, paintLine)
+            y += 20f
+
+            // Summary box/info
+            canvas.drawText("Ringkasan Kas:", marginL, y, paintHeader)
+            y += 18f
+            canvas.drawText("Total Pemasukan (Jimpitan):", marginL, y, paintBody)
+            canvas.drawText("Rp%,d".format(totalPemasukan), marginL + 200, y, paintBody)
+            y += 16f
+            canvas.drawText("Total Pengeluaran:", marginL, y, paintBody)
+            canvas.drawText("Rp%,d".format(totalPengeluaran), marginL + 200, y, paintBody)
+            y += 16f
+            val saldo = totalPemasukan - totalPengeluaran
+            canvas.drawText("Saldo Kas saat ini:", marginL, y, paintHeader)
+            canvas.drawText("Rp%,d".format(saldo), marginL + 200, y, Paint().apply {
+                textSize = 12f
+                isFakeBoldText = true
+                color = android.graphics.Color.parseColor("#138A4A")
+            })
+            y += 24f
+            canvas.drawLine(marginL, y, marginR, y, paintLine)
+            y += 20f
+
+            // Table Header for Pengeluaran
+            canvas.drawText("Daftar Pengeluaran:", marginL, y, paintHeader)
+            y += 18f
+            canvas.drawText("No", marginL, y, paintHeader)
+            canvas.drawText("Tanggal", marginL + 30, y, paintHeader)
+            canvas.drawText("Keterangan", marginL + 130, y, paintHeader)
+            canvas.drawText("Nominal", marginL + 380, y, paintHeader)
+            canvas.drawText("Status", marginL + 470, y, paintHeader)
+            y += 6f
+            canvas.drawLine(marginL, y, marginR, y, paintLine)
+            y += 16f
+
+            // Table rows
+            pengeluaranList.forEachIndexed { idx, item ->
+                if (y > 800f) {
+                    return@forEachIndexed
+                }
+                val tgl = runCatching {
+                    displaySdf.format(sdf.parse(item.tanggal)!!)
+                }.getOrDefault(item.tanggal)
+
+                canvas.drawText("${idx + 1}", marginL, y, paintBody)
+                canvas.drawText(tgl, marginL + 30, y, paintBody)
+                canvas.drawText(item.keterangan.take(45), marginL + 130, y, paintBody)
+                canvas.drawText("Rp%,d".format(item.nominal), marginL + 380, y, paintBody)
+                canvas.drawText(item.syncStatus, marginL + 470, y, paintBody)
+                y += 18f
+            }
+
+            pdfDoc.finishPage(page)
+
+            // Save to Downloads/Jimpitan/
+            val fileName = "Laporan_Buku_Kas_${
+                SimpleDateFormat("yyyyMMdd_HHmm", Locale.getDefault()).format(Date())
+            }.pdf"
+
+            val resolver = context.contentResolver
+            val contentValues = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                put(MediaStore.MediaColumns.MIME_TYPE, "application/pdf")
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/Jimpitan")
+                }
+            }
+            val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+                ?: return false
+
+            val out: OutputStream = resolver.openOutputStream(uri) ?: return false
+            pdfDoc.writeTo(out)
+            out.close()
+            pdfDoc.close()
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
 }

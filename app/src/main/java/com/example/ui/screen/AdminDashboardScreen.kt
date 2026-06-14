@@ -44,6 +44,9 @@ import com.example.ui.viewmodel.JimpitanViewModel
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import io.github.g0dkar.qrcode.QRCode
 import java.io.OutputStream
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
 import java.util.Locale
 
 private val GreenPrimary = Color(0xFF138A4A)
@@ -62,6 +65,10 @@ fun AdminDashboardScreen(
     val todayRevenue by viewModel.todayRevenue.collectAsState()
     val weekRevenue by viewModel.weekRevenue.collectAsState()
     val monthRevenue by viewModel.monthRevenue.collectAsState()
+    val allPengeluaran by viewModel.allPengeluaran.collectAsState()
+    val totalPengeluaran by viewModel.totalPengeluaran.collectAsState()
+    val totalPemasukan by viewModel.totalPemasukan.collectAsState()
+    val allPembayaran by viewModel.allPembayaran.collectAsState()
     val arrearsCount by viewModel.todayArrearsCount.collectAsState()
     val arrearsWarga by viewModel.arrearsWargaList.collectAsState()
     val arrearsInfoList by viewModel.arrearsInfoList.collectAsState()
@@ -82,7 +89,7 @@ fun AdminDashboardScreen(
 
     // Load petugas when tab selected
     LaunchedEffect(selectedTab) {
-        if (selectedTab == 2) viewModel.loadPetugas()
+        if (selectedTab == 4) viewModel.loadPetugas()
     }
 
     val excelPickerLauncher = rememberLauncherForActivityResult(
@@ -178,10 +185,11 @@ fun AdminDashboardScreen(
             }
 
             // ── Tab Row ───────────────────────────────────────────────────────
-            TabRow(
+            ScrollableTabRow(
                 selectedTabIndex = selectedTab,
                 containerColor = Color.White,
                 contentColor = GreenPrimary,
+                edgePadding = 0.dp,
                 indicator = { tabPositions ->
                     TabRowDefaults.SecondaryIndicator(
                         modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
@@ -192,22 +200,38 @@ fun AdminDashboardScreen(
                 Tab(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
-                    text = { Text("Tunggakan", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
-                    icon = { Icon(Icons.Outlined.AssignmentLate, null, modifier = Modifier.size(18.dp)) },
+                    text = { Text("Ringkasan", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
+                    icon = { Icon(Icons.Outlined.Dashboard, null, modifier = Modifier.size(18.dp)) },
                     selectedContentColor = GreenPrimary,
                     unselectedContentColor = Color.Gray
                 )
                 Tab(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
-                    text = { Text("Kelola Warga", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
-                    icon = { Icon(Icons.Outlined.People, null, modifier = Modifier.size(18.dp)) },
+                    text = { Text("Buku Kas", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
+                    icon = { Icon(Icons.Outlined.AccountBalanceWallet, null, modifier = Modifier.size(18.dp)) },
                     selectedContentColor = GreenPrimary,
                     unselectedContentColor = Color.Gray
                 )
                 Tab(
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2 },
+                    text = { Text("Tunggakan", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
+                    icon = { Icon(Icons.Outlined.AssignmentLate, null, modifier = Modifier.size(18.dp)) },
+                    selectedContentColor = GreenPrimary,
+                    unselectedContentColor = Color.Gray
+                )
+                Tab(
+                    selected = selectedTab == 3,
+                    onClick = { selectedTab = 3 },
+                    text = { Text("Kelola Warga", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
+                    icon = { Icon(Icons.Outlined.People, null, modifier = Modifier.size(18.dp)) },
+                    selectedContentColor = GreenPrimary,
+                    unselectedContentColor = Color.Gray
+                )
+                Tab(
+                    selected = selectedTab == 4,
+                    onClick = { selectedTab = 4 },
                     text = { Text("Petugas", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
                     icon = { Icon(Icons.Outlined.Badge, null, modifier = Modifier.size(18.dp)) },
                     selectedContentColor = GreenPrimary,
@@ -218,18 +242,34 @@ fun AdminDashboardScreen(
             // ── Tab Content ───────────────────────────────────────────────────
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 when (selectedTab) {
-                    0 -> ArrearsTabContent(
+                    0 -> DashboardTabContent(
+                        todayRevenue = todayRevenue ?: 0,
+                        weekRevenue = weekRevenue ?: 0,
+                        monthRevenue = monthRevenue ?: 0,
+                        totalPemasukan = totalPemasukan ?: 0,
+                        totalPengeluaran = totalPengeluaran ?: 0,
+                        arrearsCount = arrearsCount,
+                        wargaCount = wargaList.size,
+                        allPembayaran = allPembayaran
+                    )
+                    1 -> BukuKasTabContent(
+                        viewModel = viewModel,
+                        allPengeluaran = allPengeluaran,
+                        totalPemasukan = totalPemasukan ?: 0,
+                        totalPengeluaran = totalPengeluaran ?: 0
+                    )
+                    2 -> ArrearsTabContent(
                         arrearsInfoList = arrearsInfoList,
                         allWarga = arrearsWarga,
                         onWargaClick = { onNavigateWargaDetail(it.id) }
                     )
-                    1 -> CitizensTabContent(
+                    3 -> CitizensTabContent(
                         wargaList = wargaList,
                         onImportExcel = { excelPickerLauncher.launch("*/*") },
                         onShowQr = { selectedWargaForQr = it },
                         onWargaDetail = { onNavigateWargaDetail(it.id) }
                     )
-                    2 -> OfficersTabContent(
+                    4 -> OfficersTabContent(
                         petugasList = petugasList,
                         onAddPetugas = { showAddPetugasDialog = true }
                     )
@@ -237,8 +277,8 @@ fun AdminDashboardScreen(
             }
         }
 
-        // FAB for tab 1
-        if (selectedTab == 1) {
+        // FAB for tab 3
+        if (selectedTab == 3) {
             FloatingActionButton(
                 onClick = { showAddWargaDialog = true },
                 modifier = Modifier
@@ -1008,4 +1048,524 @@ fun saveQrToGallery(context: Context, bitmap: Bitmap, fileName: String): Boolean
         e.printStackTrace()
         false
     }
+}
+
+// ─── Dashboard Tab Content ───────────────────────────────────────────────────
+
+@Composable
+fun DashboardTabContent(
+    todayRevenue: Int,
+    weekRevenue: Int,
+    monthRevenue: Int,
+    totalPemasukan: Int,
+    totalPengeluaran: Int,
+    arrearsCount: Int,
+    wargaCount: Int,
+    allPembayaran: List<com.example.data.local.entity.PembayaranEntity>
+) {
+    val list7Days = remember(allPembayaran) {
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val cal = Calendar.getInstance()
+        val dates = (0..6).map { i ->
+            val c = cal.clone() as Calendar
+            c.add(Calendar.DAY_OF_YEAR, -i)
+            sdf.format(c.time)
+        }.reversed() // [today-6, today-5, ..., today]
+
+        val revenueMap = allPembayaran.groupBy { it.tanggalBayar }
+            .mapValues { entry -> entry.value.sumOf { it.nominal } }
+
+        dates.map { date ->
+            val label = runCatching {
+                val d = sdf.parse(date)!!
+                SimpleDateFormat("dd/MM", Locale.getDefault()).format(d)
+            }.getOrDefault(date)
+            label to (revenueMap[date] ?: 0)
+        }
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Welcome Card (premium design, gradient)
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            brush = Brush.horizontalGradient(
+                                listOf(GreenPrimary, Color(0xFF0F9B58))
+                            )
+                        )
+                        .padding(20.dp)
+                ) {
+                    Column {
+                        Text("Ringkasan Kas RT", color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            "Rp%,d".format(totalPemasukan - totalPengeluaran),
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 28.sp
+                        )
+                        Text(
+                            "Saldo Kas Aktif",
+                            color = Color.White.copy(alpha = 0.9f),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+        }
+
+        // Stats Grid
+        item {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(modifier = Modifier.weight(1f)) {
+                    StatMetricCard(
+                        title = "Pemasukan",
+                        value = "Rp%,d".format(totalPemasukan),
+                        subtitle = "Total jimpitan warga",
+                        icon = Icons.Default.TrendingUp,
+                        iconColor = Color(0xFF138A4A),
+                        bgColor = Color(0xFF138A4A).copy(alpha = 0.08f)
+                    )
+                }
+                Box(modifier = Modifier.weight(1f)) {
+                    StatMetricCard(
+                        title = "Pengeluaran",
+                        value = "Rp%,d".format(totalPengeluaran),
+                        subtitle = "Total belanja/sosial",
+                        icon = Icons.Default.TrendingDown,
+                        iconColor = Color(0xFFBA1A1A),
+                        bgColor = Color(0xFFBA1A1A).copy(alpha = 0.08f)
+                    )
+                }
+            }
+        }
+
+        item {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(modifier = Modifier.weight(1f)) {
+                    StatMetricCard(
+                        title = "Tunggakan",
+                        value = "$arrearsCount Warga",
+                        subtitle = "Belum bayar hari ini",
+                        icon = Icons.Default.Warning,
+                        iconColor = Color(0xFFE28B00),
+                        bgColor = Color(0xFFE28B00).copy(alpha = 0.08f)
+                    )
+                }
+                Box(modifier = Modifier.weight(1f)) {
+                    StatMetricCard(
+                        title = "Total Warga",
+                        value = "$wargaCount Orang",
+                        subtitle = "Terdaftar di RT",
+                        icon = Icons.Default.People,
+                        iconColor = Color(0xFF1B68A0),
+                        bgColor = Color(0xFF1B68A0).copy(alpha = 0.08f)
+                    )
+                }
+            }
+        }
+
+        // 7-day bar chart
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        "Pendapatan Jimpitan 7 Hari Terakhir",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = Color.DarkGray
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    val maxVal = list7Days.maxOfOrNull { it.second }?.toFloat() ?: 1f
+                    val displayMax = if (maxVal == 0f) 10000f else maxVal
+
+                    Canvas(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(180.dp)
+                    ) {
+                        val canvasWidth = size.width
+                        val canvasHeight = size.height
+                        val paddingBottom = 30.dp.toPx()
+                        val paddingTop = 15.dp.toPx()
+                        val chartHeight = canvasHeight - paddingBottom - paddingTop
+                        val barCount = list7Days.size
+                        val barSpacing = 16.dp.toPx()
+                        val totalSpacing = barSpacing * (barCount - 1)
+                        val barWidth = (canvasWidth - totalSpacing) / barCount
+
+                        val gridCount = 4
+                        for (i in 0..gridCount) {
+                            val gridY = paddingTop + (chartHeight * i / gridCount)
+                            drawLine(
+                                color = Color.LightGray.copy(alpha = 0.4f),
+                                start = androidx.compose.ui.geometry.Offset(0f, gridY),
+                                end = androidx.compose.ui.geometry.Offset(canvasWidth, gridY),
+                                strokeWidth = 1f
+                            )
+                        }
+
+                        list7Days.forEachIndexed { index, (label, amount) ->
+                            val x = index * (barWidth + barSpacing)
+                            val barHeight = (amount / displayMax) * chartHeight
+                            val y = canvasHeight - paddingBottom - barHeight
+
+                            val color = if (amount > 0) GreenPrimary else Color.LightGray.copy(alpha = 0.4f)
+
+                            drawRoundRect(
+                                color = color,
+                                topLeft = androidx.compose.ui.geometry.Offset(x, y),
+                                size = androidx.compose.ui.geometry.Size(barWidth, barHeight),
+                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(6.dp.toPx(), 6.dp.toPx())
+                            )
+
+                            if (amount > 0) {
+                                val textAmount = if (amount >= 1000) "${amount / 1000}k" else "$amount"
+                                drawContext.canvas.nativeCanvas.apply {
+                                    val paint = Paint().apply {
+                                        this.color = AndroidColor.DKGRAY
+                                        textSize = 10.sp.toPx()
+                                        textAlign = Paint.Align.CENTER
+                                        isAntiAlias = true
+                                    }
+                                    drawText(
+                                        textAmount,
+                                        x + barWidth / 2,
+                                        y - 4.dp.toPx(),
+                                        paint
+                                    )
+                                }
+                            }
+
+                            drawContext.canvas.nativeCanvas.apply {
+                                val paintLabel = Paint().apply {
+                                    this.color = AndroidColor.GRAY
+                                    textSize = 10.sp.toPx()
+                                    textAlign = Paint.Align.CENTER
+                                    isAntiAlias = true
+                                }
+                                drawText(
+                                    label,
+                                    x + barWidth / 2,
+                                    canvasHeight - 8.dp.toPx(),
+                                    paintLabel
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun StatMetricCard(
+    title: String,
+    value: String,
+    subtitle: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconColor: Color,
+    bgColor: Color
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(title, color = Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(bgColor, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(icon, null, tint = iconColor, modifier = Modifier.size(16.dp))
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(value, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.DarkGray)
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(subtitle, color = Color.Gray.copy(alpha = 0.8f), fontSize = 10.sp)
+        }
+    }
+}
+
+// ─── Buku Kas Tab Content ─────────────────────────────────────────────────────
+
+@Composable
+fun BukuKasTabContent(
+    viewModel: JimpitanViewModel,
+    allPengeluaran: List<com.example.data.local.entity.PengeluaranEntity>,
+    totalPemasukan: Int,
+    totalPengeluaran: Int
+) {
+    val context = LocalContext.current
+    var showAddDialog by remember { mutableStateOf(false) }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("Saldo Buku Kas RT", color = Color.Gray, fontSize = 12.sp)
+                        Text(
+                            "Rp%,d".format(totalPemasukan - totalPengeluaran),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 20.sp,
+                            color = GreenPrimary
+                        )
+                    }
+                    Button(
+                        onClick = {
+                            viewModel.exportBukuKasPdf(
+                                context = context,
+                                onSuccess = {
+                                    Toast.makeText(context, "✓ Laporan Buku Kas PDF berhasil disimpan ke Downloads", Toast.LENGTH_LONG).show()
+                                },
+                                onError = {
+                                    Toast.makeText(context, "Gagal membuat laporan Buku Kas PDF", Toast.LENGTH_SHORT).show()
+                                }
+                            )
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary),
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Icon(Icons.Default.Download, null, modifier = Modifier.size(16.dp), tint = Color.White)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Unduh PDF", fontSize = 12.sp, color = Color.White)
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.LightGray.copy(alpha = 0.5f)))
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Total Masuk", color = Color.Gray, fontSize = 11.sp)
+                        Text("Rp%,d".format(totalPemasukan), color = Color.DarkGray, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Total Keluar", color = Color.Gray, fontSize = 11.sp)
+                        Text("Rp%,d".format(totalPengeluaran), color = Color(0xFFBA1A1A), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    }
+                }
+            }
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Riwayat Pengeluaran (${allPengeluaran.size})",
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                color = Color.DarkGray
+            )
+            TextButton(
+                onClick = { showAddDialog = true },
+                colors = ButtonDefaults.textButtonColors(contentColor = GreenPrimary)
+            ) {
+                Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Tambah Pengeluaran", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+
+        if (allPengeluaran.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Outlined.AccountBalanceWallet, null, tint = Color.Gray.copy(0.4f), modifier = Modifier.size(56.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Belum ada catatan pengeluaran", color = Color.Gray)
+                }
+            }
+        } else {
+            LazyColumn(
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                items(allPengeluaran) { item ->
+                    ExpenseItemCard(item = item)
+                }
+            }
+        }
+    }
+
+    if (showAddDialog) {
+        AddPengeluaranDialog(
+            onDismiss = { showAddDialog = false },
+            onConfirm = { nominal, keterangan ->
+                viewModel.savePengeluaran(nominal, keterangan) {
+                    showAddDialog = false
+                    Toast.makeText(context, "Pengeluaran berhasil disimpan!", Toast.LENGTH_SHORT).show()
+                    viewModel.syncNow()
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun ExpenseItemCard(item: com.example.data.local.entity.PengeluaranEntity) {
+    val displaySdf = SimpleDateFormat("dd MMM yyyy", Locale("id", "ID"))
+    val parserSdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    val tgl = runCatching {
+        displaySdf.format(parserSdf.parse(item.tanggal)!!)
+    }.getOrDefault(item.tanggal)
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(Color(0xFFBA1A1A).copy(0.08f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.TrendingDown, null, tint = Color(0xFFBA1A1A), modifier = Modifier.size(18.dp))
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(item.keterangan, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.DarkGray)
+                Spacer(modifier = Modifier.height(2.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(tgl, fontSize = 11.sp, color = Color.Gray)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                if (item.syncStatus == "SYNCED") GreenPrimary.copy(alpha = 0.08f)
+                                else Color.Gray.copy(alpha = 0.08f),
+                                RoundedCornerShape(6.dp)
+                            )
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = if (item.syncStatus == "SYNCED") "Synced" else "Pending",
+                            color = if (item.syncStatus == "SYNCED") GreenPrimary else Color.Gray,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+            Text(
+                "- Rp%,d".format(item.nominal),
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp,
+                color = Color(0xFFBA1A1A)
+            )
+        }
+    }
+}
+
+@Composable
+fun AddPengeluaranDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (Int, String) -> Unit
+) {
+    var nominalStr by remember { mutableStateOf("") }
+    var keterangan by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Catat Pengeluaran Baru", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedTextField(
+                    value = nominalStr,
+                    onValueChange = { input ->
+                        if (input.all { it.isDigit() }) nominalStr = input
+                    },
+                    label = { Text("Nominal Pengeluaran (Rp)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = GreenPrimary,
+                        focusedTextColor = Color.DarkGray,
+                        unfocusedTextColor = Color.DarkGray
+                    ),
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = keterangan,
+                    onValueChange = { keterangan = it },
+                    label = { Text("Keterangan / Keperluan") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = GreenPrimary,
+                        focusedTextColor = Color.DarkGray,
+                        unfocusedTextColor = Color.DarkGray
+                    )
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val nom = nominalStr.toIntOrNull() ?: 0
+                    if (nom > 0 && keterangan.isNotBlank()) {
+                        onConfirm(nom, keterangan)
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)
+            ) { Text("Simpan", color = Color.White) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Batal", color = Color.Gray) }
+        }
+    )
 }

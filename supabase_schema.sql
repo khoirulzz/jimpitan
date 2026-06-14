@@ -64,6 +64,10 @@ ALTER TABLE public.pembayaran ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.coverage_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sync_logs ENABLE ROW LEVEL SECURITY;
 
+-- 7.5 GRANT PERMISSIONS TO ROLES
+GRANT USAGE ON SCHEMA public TO authenticated, anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated, anon;
+
 -- 8. CREATE RLS POLICIES
 
 -- Profiles:
@@ -155,4 +159,37 @@ ON CONFLICT (qr_uuid) DO NOTHING;
 -- menu "Users" -> "Add User" -> "Create User" di Supabase Dashboard dengan 
 -- email dan password di atas. Secara otomatis trigger 'on_auth_user_created'
 -- akan mendaftarkan profil pengguna tersebut sebagai ADMIN.
+
+
+-- 12. PENGELUARAN TABLE FOR BUKU KAS
+CREATE TABLE IF NOT EXISTS public.pengeluaran (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    nominal INTEGER NOT NULL CHECK (nominal > 0),
+    tanggal DATE NOT NULL,
+    keterangan TEXT NOT NULL,
+    created_by UUID REFERENCES auth.users(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- ENABLE ROW LEVEL SECURITY (RLS)
+ALTER TABLE public.pengeluaran ENABLE ROW LEVEL SECURITY;
+
+-- GRANT PERMISSIONS TO ROLES
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.pengeluaran TO authenticated, anon;
+
+-- CREATE RLS POLICIES
+DROP POLICY IF EXISTS "Allow read pengeluaran for authenticated users" ON public.pengeluaran;
+CREATE POLICY "Allow read pengeluaran for authenticated users" 
+ON public.pengeluaran FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "Allow insert pengeluaran for admin only" ON public.pengeluaran;
+CREATE POLICY "Allow insert pengeluaran for admin only" 
+ON public.pengeluaran FOR INSERT TO authenticated 
+WITH CHECK ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'ADMIN');
+
+DROP POLICY IF EXISTS "Allow update/delete pengeluaran for admin only" ON public.pengeluaran;
+CREATE POLICY "Allow update/delete pengeluaran for admin only" 
+ON public.pengeluaran FOR ALL TO authenticated 
+USING ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'ADMIN')
+WITH CHECK ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'ADMIN');
 

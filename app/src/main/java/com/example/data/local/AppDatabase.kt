@@ -5,16 +5,17 @@ import androidx.room.RoomDatabase
 import com.example.data.local.dao.JimpitanDao
 import com.example.data.local.entity.CoverageHistoryEntity
 import com.example.data.local.entity.PembayaranEntity
+import com.example.data.local.entity.PengeluaranEntity
 import com.example.data.local.entity.WargaEntity
 
 /**
  * Room Database definition.
- * version = 2: bumped for multi-RT query support and new DAO queries.
+ * version = 3: added Pengeluaran table for Buku Kas.
  * fallbackToDestructiveMigration() is set in Injection.kt so no manual Migration class needed.
  */
 @Database(
-    entities = [WargaEntity::class, PembayaranEntity::class, CoverageHistoryEntity::class],
-    version = 2,
+    entities = [WargaEntity::class, PembayaranEntity::class, CoverageHistoryEntity::class, PengeluaranEntity::class],
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

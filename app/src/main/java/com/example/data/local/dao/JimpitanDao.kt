@@ -37,6 +37,9 @@ interface JimpitanDao {
     @Query("SELECT * FROM pembayaran ORDER BY createdAt DESC")
     fun getAllPembayaran(): Flow<List<PembayaranEntity>>
 
+    @Query("SELECT SUM(nominal) FROM pembayaran")
+    fun getTotalPemasukan(): Flow<Int?>
+
     @Query("SELECT * FROM pembayaran WHERE syncStatus = 'PENDING'")
     suspend fun getPendingPembayaran(): List<PembayaranEntity>
 
@@ -113,4 +116,27 @@ interface JimpitanDao {
 
     @Query("SELECT SUM(nominal) FROM pembayaran WHERE wargaId = :wargaId")
     suspend fun getTotalNominalByWarga(wargaId: String): Int?
+
+    // ─── Pengeluaran ──────────────────────────────────────────────────────────
+
+    @Query("SELECT * FROM pengeluaran ORDER BY tanggal DESC")
+    fun getAllPengeluaran(): Flow<List<com.example.data.local.entity.PengeluaranEntity>>
+
+    @Query("SELECT * FROM pengeluaran WHERE syncStatus = 'PENDING'")
+    suspend fun getPendingPengeluaran(): List<com.example.data.local.entity.PengeluaranEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertPengeluaran(pengeluaran: com.example.data.local.entity.PengeluaranEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertPengeluaranList(list: List<com.example.data.local.entity.PengeluaranEntity>)
+
+    @Query("UPDATE pengeluaran SET syncStatus = :status, serverId = :serverId WHERE idLocal = :idLocal")
+    suspend fun updatePengeluaranStatus(idLocal: Long, status: String, serverId: String?)
+
+    @Query("DELETE FROM pengeluaran WHERE syncStatus = 'SYNCED'")
+    suspend fun clearSyncedPengeluaran()
+
+    @Query("SELECT SUM(nominal) FROM pengeluaran")
+    fun getTotalPengeluaran(): Flow<Int?>
 }

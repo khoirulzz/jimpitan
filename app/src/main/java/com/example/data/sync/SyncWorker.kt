@@ -16,6 +16,7 @@ class SyncWorker(
             repository.fetchWarga()
             repository.fetchPembayaranFromServer()
             repository.fetchCoverageHistoryFromServer()
+            repository.fetchPengeluaranFromServer()
             repository.syncPending()
             Result.success()
         } catch (e: Exception) {

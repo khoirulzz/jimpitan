@@ -41,6 +41,15 @@ data class CoverageDto(
 )
 
 @JsonClass(generateAdapter = true)
+data class PengeluaranDto(
+    val id: String? = null,
+    val nominal: Int,
+    val tanggal: String,
+    val keterangan: String,
+    val created_by: String
+)
+
+@JsonClass(generateAdapter = true)
 data class ProfileDto(
     val id: String,
     val nama: String,
@@ -151,6 +160,29 @@ interface SupabaseService {
         @Header("Prefer") prefer: String = "return=representation",
         @Body req: CoverageDto
     ): List<CoverageDto>
+
+    // ─── Pengeluaran ──────────────────────────────────────────────────────────
+
+    @GET("rest/v1/pengeluaran?select=*&order=tanggal.desc")
+    suspend fun getPengeluaran(
+        @Header("apikey") apiKey: String,
+        @Header("Authorization") auth: String
+    ): List<PengeluaranDto>
+
+    @POST("rest/v1/pengeluaran")
+    suspend fun insertPengeluaran(
+        @Header("apikey") apiKey: String,
+        @Header("Authorization") auth: String,
+        @Header("Prefer") prefer: String = "return=representation",
+        @Body req: PengeluaranDto
+    ): List<PengeluaranDto>
+
+    @DELETE("rest/v1/pengeluaran")
+    suspend fun deletePengeluaran(
+        @Header("apikey") apiKey: String,
+        @Header("Authorization") auth: String,
+        @Query("id") eqId: String // using "eq.UUID" in the caller
+    )
 
     // ─── OTA Updater ──────────────────────────────────────────────────────────
 

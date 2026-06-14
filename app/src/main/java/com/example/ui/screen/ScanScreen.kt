@@ -76,6 +76,12 @@ fun ScanScreen(
         Box(modifier = Modifier.fillMaxSize()) {
             if (hasCameraPermission) {
                 CameraPreview(onQrScanned = { qrText ->
+                    try {
+                        val toneG = android.media.ToneGenerator(android.media.AudioManager.STREAM_MUSIC, 100)
+                        toneG.startTone(android.media.ToneGenerator.TONE_CDMA_PIP, 150)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
                     haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                     onQrScanned(qrText)
                 })

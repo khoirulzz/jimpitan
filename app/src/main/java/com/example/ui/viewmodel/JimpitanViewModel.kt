@@ -127,6 +127,24 @@ class JimpitanViewModel(
         initialValue = emptyList()
     )
 
+    val allPengeluaran = repository.allPengeluaran.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    val totalPengeluaran = repository.totalPengeluaran.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = 0
+    )
+
+    val totalPemasukan = repository.totalPemasukan.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = 0
+    )
+
     // ─── OTA Updater ──────────────────────────────────────────────────────────
 
     private val _updateAvailable = MutableStateFlow<com.example.data.remote.AppVersionDto?>(null)
@@ -258,6 +276,17 @@ class JimpitanViewModel(
             }
             repository.syncPending()
             updateCoverageStatus(w.id)
+        }
+    }
+
+    // ─── Cash Book (Buku Kas) ─────────────────────────────────────────────────
+
+    fun savePengeluaran(nominal: Int, keterangan: String, onSuccess: () -> Unit) {
+        val uid = repository.userId ?: return
+        viewModelScope.launch {
+            repository.savePengeluaran(nominal, keterangan, uid)
+            repository.syncPending()
+            onSuccess()
         }
     }
 
@@ -393,6 +422,22 @@ class JimpitanViewModel(
     ) {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             val ok = com.example.util.PdfExporter.exportQrSheetPdf(context, allWarga.value)
+            viewModelScope.launch(kotlinx.coroutines.Dispatchers.Main) {
+                if (ok) onSuccess() else onError()
+            }
+        }
+    }
+
+    fun exportBukuKasPdf(
+        context: android.content.Context,
+        onSuccess: () -> Unit,
+        onError: () -> Unit
+    ) {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val pengeluaranList = allPengeluaran.value
+            val totalIn = totalPemasukan.value ?: 0
+            val totalOut = totalPengeluaran.value ?: 0
+            val ok = com.example.util.PdfExporter.exportBukuKasPdf(context, pengeluaranList, totalIn, totalOut)
             viewModelScope.launch(kotlinx.coroutines.Dispatchers.Main) {
                 if (ok) onSuccess() else onError()
             }

@@ -42,6 +42,9 @@ class JimpitanRepository(
 
     val allWarga = dao.getAllWarga()
     val allPembayaran = dao.getAllPembayaran()
+    val totalPemasukan = dao.getTotalPemasukan()
+    val allPengeluaran = dao.getAllPengeluaran()
+    val totalPengeluaran = dao.getTotalPengeluaran()
 
     fun getRevenue(date: String): Flow<Int?> = dao.getRevenueByDate(date)
     fun getPaidCount(date: String): Flow<Int> = dao.getPaidCountByDate(date)
@@ -199,6 +202,30 @@ class JimpitanRepository(
         }
     }
 
+    suspend fun fetchPengeluaranFromServer() {
+        if (accessToken == null || accessToken == "dummy_token") return
+        try {
+            val authHeader = "Bearer $accessToken"
+            val remotePengeluaran = api.getPengeluaran(apiKey, authHeader)
+            if (remotePengeluaran.isNotEmpty()) {
+                val entities = remotePengeluaran.map { dto ->
+                    com.example.data.local.entity.PengeluaranEntity(
+                        serverId = dto.id,
+                        nominal = dto.nominal,
+                        tanggal = dto.tanggal,
+                        keterangan = dto.keterangan,
+                        createdBy = dto.created_by,
+                        syncStatus = "SYNCED"
+                    )
+                }
+                dao.clearSyncedPengeluaran()
+                dao.insertPengeluaranList(entities)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     suspend fun getWargaByQr(qrText: String) = dao.getWargaByQr(qrText)
 
     suspend fun saveWarga(nama: String, rt: String, rw: String, nomorRumah: String, alamat: String): Boolean {
@@ -323,20 +350,33 @@ class JimpitanRepository(
             cal.time = sdf.parse(today)!!
         }
 
+        val coverageList = mutableListOf<CoverageHistoryEntity>()
         for (i in 0 until coverageDays) {
-            val dateStr = sdf.format(cal.time)
-            dao.insertCoverageHistory(
+            coverageList.add(
                 CoverageHistoryEntity(
                     id = null,
                     wargaId = wargaId,
                     paymentId = null,
                     paymentLocalId = idLocal,
-                    tanggalKewajiban = dateStr
+                    tanggalKewajiban = sdf.format(cal.time)
                 )
             )
             cal.add(Calendar.DAY_OF_MONTH, 1)
         }
+        dao.insertCoverageHistoryList(coverageList)
+        return true
+    }
 
+    suspend fun savePengeluaran(nominal: Int, keterangan: String, userId: String): Boolean {
+        val newPengeluaran = com.example.data.local.entity.PengeluaranEntity(
+            serverId = null,
+            nominal = nominal,
+            tanggal = todayStr(),
+            keterangan = keterangan,
+            createdBy = userId,
+            syncStatus = "PENDING"
+        )
+        dao.insertPengeluaran(newPengeluaran)
         return true
     }
 
@@ -467,6 +507,26 @@ class JimpitanRepository(
                 dao.updatePembayaranStatus(p.idLocal, status, null)
             } catch (e: Exception) {
                 dao.updatePembayaranStatus(p.idLocal, "FAILED", null)
+            }
+        }
+
+        // Sync Pengeluaran
+        val pendingPengeluaran = dao.getPendingPengeluaran()
+        for (pengeluaran in pendingPengeluaran) {
+            try {
+                val req = com.example.data.remote.PengeluaranDto(
+                    nominal = pengeluaran.nominal,
+                    tanggal = pengeluaran.tanggal,
+                    keterangan = pengeluaran.keterangan,
+                    created_by = pengeluaran.createdBy
+                )
+                val res = api.insertPengeluaran(apiKey, authHeader, req = req)
+                val sId = res.firstOrNull()?.id
+                if (sId != null) {
+                    dao.updatePengeluaranStatus(pengeluaran.idLocal, "SYNCED", sId)
+                }
+            } catch (e: Exception) {
+                dao.updatePengeluaranStatus(pengeluaran.idLocal, "FAILED", null)
             }
         }
     }
