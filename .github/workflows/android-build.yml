@@ -27,22 +27,11 @@ jobs:
     - name: Generate Gradle Wrapper
       run: gradle wrapper
 
-    - name: Inject Secrets into .env and Keystore
-      env:
-        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+    - name: Inject Public Keys into .env
       run: |
         # We hardcode the Supabase URL and Anon Key because they are public frontend keys.
         echo "SUPABASE_URL=https://jswqjcigdqagvzxyggma.supabase.co" > .env
         echo "SUPABASE_ANON_KEY=sb_publishable_sBGYIzHY_6zS-U2404bEvw_QRAdZ3sv" >> .env
-        
-        # KEYSTORE is highly sensitive, so we MUST use the GitHub Secret.
-        if [ -z "$KEYSTORE_BASE64" ]; then
-          echo "ERROR: KEYSTORE_BASE64 secret is empty!"
-          exit 1
-        fi
-        echo "$KEYSTORE_BASE64" | base64 --decode > my-upload-key.jks
 
     - name: Grant Execute Permission to Gradlew
       run: chmod +x gradlew
