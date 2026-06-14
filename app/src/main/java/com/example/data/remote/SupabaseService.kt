@@ -151,4 +151,11 @@ interface SupabaseService {
         @Header("Prefer") prefer: String = "return=representation",
         @Body req: CoverageDto
     ): List<CoverageDto>
+
+    // ─── OTA Updater ──────────────────────────────────────────────────────────
+
+    @GET("rest/v1/app_versions?select=*&order=version_code.desc&limit=1")
+    suspend fun getLatestVersion(
+        @Header("apikey") apiKey: String
+    ): List<AppVersionDto>
 }
