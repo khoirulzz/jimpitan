@@ -52,6 +52,9 @@ interface JimpitanDao {
     @Query("UPDATE pembayaran SET syncStatus = :status, serverId = :serverId WHERE idLocal = :idLocal")
     suspend fun updatePembayaranStatus(idLocal: Long, status: String, serverId: String?)
 
+    @Query("DELETE FROM pembayaran WHERE syncStatus = 'SYNCED'")
+    suspend fun clearSyncedPembayaran()
+
     @Query("DELETE FROM pembayaran")
     suspend fun clearPembayaran()
 
@@ -80,6 +83,9 @@ interface JimpitanDao {
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertCoverageHistoryList(list: List<CoverageHistoryEntity>)
+
+    @Query("DELETE FROM coverage_history WHERE id IS NOT NULL")
+    suspend fun clearSyncedCoverageHistory()
 
     @Query("DELETE FROM coverage_history")
     suspend fun clearCoverageHistory()

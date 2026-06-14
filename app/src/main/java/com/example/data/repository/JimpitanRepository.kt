@@ -168,6 +168,7 @@ class JimpitanRepository(
                         syncStatus = "SYNCED"
                     )
                 }
+                dao.clearSyncedPembayaran()
                 dao.insertPembayaranList(entities)
             }
         } catch (e: Exception) {
@@ -190,6 +191,7 @@ class JimpitanRepository(
                         tanggalKewajiban = dto.tanggal_kewajiban
                     )
                 }
+                dao.clearSyncedCoverageHistory()
                 dao.insertCoverageHistoryList(entities)
             }
         } catch (e: Exception) {
@@ -308,8 +310,8 @@ class JimpitanRepository(
                 // Check if last coverage is in the past — if so, check for gaps
                 val todayCal = Calendar.getInstance()
                 if (cal.before(todayCal)) {
-                    // Last coverage is in the past; start from today
-                    cal.time = sdf.parse(today)!!
+                    // Last coverage is in the past; continue from next day to cover arrears
+                    cal.add(Calendar.DAY_OF_MONTH, 1)
                 } else {
                     // Last coverage is today or future; continue from next day
                     cal.add(Calendar.DAY_OF_MONTH, 1)
@@ -362,8 +364,7 @@ class JimpitanRepository(
         val coverageMap = mutableMapOf<String, Boolean>()
         val dayCal = Calendar.getInstance()
         dayCal.set(year, month - 1, 1)
-        val today = todayStr()
-        while (sdf.format(dayCal.time) <= today) {
+        while (sdf.format(dayCal.time) <= endDate) {
             val dateStr = sdf.format(dayCal.time)
             if (sdf.format(dayCal.time) > endDate) break
             coverageMap[dateStr] = paidDates.contains(dateStr)
@@ -444,7 +445,11 @@ class JimpitanRepository(
                             payment_id = sId,
                             tanggal_kewajiban = c.tanggalKewajiban
                         )
-                        api.insertCoverage(apiKey, authHeader, req = cReq)
+                        val cRes = api.insertCoverage(apiKey, authHeader, req = cReq)
+                        val sCoverageId = cRes.firstOrNull()?.id
+                        if (sCoverageId != null) {
+                            dao.updateCoverageServerId(c.localId, sCoverageId, sId)
+                        }
                     } catch (e: retrofit2.HttpException) {
                         if (e.code() == 409) {
                             coverageConflict = true
