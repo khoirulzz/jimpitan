@@ -25,3 +25,12 @@
 # Debugging information (opsional, disarankan agar error log tetap terbaca)
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
+
+# Ignore warnings for optional dependencies from iText and OkHttp
+-dontwarn com.fasterxml.jackson.**
+-dontwarn java.awt.**
+-dontwarn javax.imageio.**
+-dontwarn org.bouncycastle.**
+-dontwarn org.conscrypt.**
+-dontwarn org.openjsse.**
+-dontwarn org.slf4j.**
