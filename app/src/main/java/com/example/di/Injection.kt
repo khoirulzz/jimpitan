@@ -20,7 +20,9 @@ object Injection {
             val db = Room.databaseBuilder(
                 context.applicationContext,
                 AppDatabase::class.java, "jimpitan-db"
-            ).build()
+            )
+                .fallbackToDestructiveMigration()
+                .build()
             
             val moshi = Moshi.Builder()
                 .add(KotlinJsonAdapterFactory())

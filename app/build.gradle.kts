@@ -64,6 +64,8 @@ secrets {
 dependencies {
   implementation("io.github.g0dkar:qrcode-kotlin:3.2.0")
   implementation("androidx.work:work-runtime-ktx:2.9.1")
+  implementation("androidx.security:security-crypto:1.1.0-alpha06")
+  implementation("com.itextpdf:itext7-core:7.2.6")
   implementation(platform(libs.androidx.compose.bom))
   implementation(platform(libs.firebase.bom))
   // implementation(libs.accompanist.permissions)

@@ -5,7 +5,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -34,21 +33,10 @@ fun SplashScreen(
     val GreenDark = Color(0xFF0F6E3B)
 
     LaunchedEffect(key1 = true) {
-        // Run scale-in and fade-in animation in parallel
-        scale.animateTo(
-            targetValue = 1f,
-            animationSpec = tween(durationMillis = 1000)
-        )
-        alpha.animateTo(
-            targetValue = 1f,
-            animationSpec = tween(durationMillis = 800)
-        )
-        delay(1500) // keep showing for 1.5 seconds
-        // Fade out before transitioning
-        alpha.animateTo(
-            targetValue = 0f,
-            animationSpec = tween(durationMillis = 500)
-        )
+        scale.animateTo(targetValue = 1f, animationSpec = tween(durationMillis = 800))
+        alpha.animateTo(targetValue = 1f, animationSpec = tween(durationMillis = 600))
+        delay(1200)
+        alpha.animateTo(targetValue = 0f, animationSpec = tween(durationMillis = 400))
         onAnimationFinished()
     }
 
@@ -68,7 +56,7 @@ fun SplashScreen(
         ) {
             Image(
                 painter = painterResource(id = R.drawable.jimpitan_logo),
-                contentDescription = "App Logo",
+                contentDescription = "Logo Jimpitan Digital",
                 modifier = Modifier
                     .size(160.dp)
                     .scale(scale.value)

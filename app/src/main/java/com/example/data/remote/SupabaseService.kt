@@ -2,9 +2,11 @@ package com.example.data.remote
 
 import com.squareup.moshi.JsonClass
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
+import retrofit2.http.Path
 import retrofit2.http.Query
 
 @JsonClass(generateAdapter = true)
@@ -42,7 +44,8 @@ data class CoverageDto(
 data class ProfileDto(
     val id: String,
     val nama: String,
-    val role: String
+    val role: String,
+    val created_at: String? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -53,7 +56,8 @@ data class AuthRequest(
 
 @JsonClass(generateAdapter = true)
 data class UserDto(
-    val id: String
+    val id: String,
+    val email: String? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -71,6 +75,8 @@ data class SignUpRequest(
 
 interface SupabaseService {
 
+    // ─── Auth ─────────────────────────────────────────────────────────────────
+
     @POST("auth/v1/token?grant_type=password")
     suspend fun login(
         @Header("apikey") apiKey: String,
@@ -83,6 +89,8 @@ interface SupabaseService {
         @Body req: SignUpRequest
     ): AuthResponse
 
+    // ─── Profiles ─────────────────────────────────────────────────────────────
+
     @GET("rest/v1/profiles?select=*")
     suspend fun getProfile(
         @Header("apikey") apiKey: String,
@@ -90,7 +98,15 @@ interface SupabaseService {
         @Query("id") idFilter: String
     ): List<ProfileDto>
 
-    @GET("rest/v1/warga?select=*")
+    @GET("rest/v1/profiles?select=*&role=eq.PETUGAS&order=created_at.asc")
+    suspend fun getPetugas(
+        @Header("apikey") apiKey: String,
+        @Header("Authorization") auth: String
+    ): List<ProfileDto>
+
+    // ─── Warga ────────────────────────────────────────────────────────────────
+
+    @GET("rest/v1/warga?select=*&is_active=eq.true&order=nama.asc")
     suspend fun getWarga(
         @Header("apikey") apiKey: String,
         @Header("Authorization") auth: String
@@ -104,6 +120,14 @@ interface SupabaseService {
         @Body req: WargaDto
     ): List<WargaDto>
 
+    // ─── Pembayaran ───────────────────────────────────────────────────────────
+
+    @GET("rest/v1/pembayaran?select=*&order=tanggal_bayar.desc")
+    suspend fun getPembayaran(
+        @Header("apikey") apiKey: String,
+        @Header("Authorization") auth: String
+    ): List<PembayaranDto>
+
     @POST("rest/v1/pembayaran")
     suspend fun insertPembayaran(
         @Header("apikey") apiKey: String,
@@ -111,6 +135,14 @@ interface SupabaseService {
         @Header("Prefer") prefer: String = "return=representation",
         @Body req: PembayaranDto
     ): List<PembayaranDto>
+
+    // ─── Coverage History ─────────────────────────────────────────────────────
+
+    @GET("rest/v1/coverage_history?select=*&order=tanggal_kewajiban.asc")
+    suspend fun getCoverageHistory(
+        @Header("apikey") apiKey: String,
+        @Header("Authorization") auth: String
+    ): List<CoverageDto>
 
     @POST("rest/v1/coverage_history")
     suspend fun insertCoverage(

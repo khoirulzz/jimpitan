@@ -6,12 +6,28 @@ import com.example.data.local.entity.PembayaranEntity
 import com.example.data.remote.AuthRequest
 import com.example.data.remote.CoverageDto
 import com.example.data.remote.PembayaranDto
+import com.example.data.remote.ProfileDto
 import com.example.data.remote.SupabaseService
 import kotlinx.coroutines.flow.Flow
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
-import java.util.Calendar
+
+data class WargaArrearsInfo(
+    val warga: com.example.data.local.entity.WargaEntity,
+    val arrearsdays: Int,
+    val lastPaymentDate: String?,
+    val lastCoverageDate: String?
+)
+
+data class WargaDetailData(
+    val warga: com.example.data.local.entity.WargaEntity,
+    val totalLunasDays: Int,
+    val totalNominal: Int,
+    val lastCoverageDate: String?,
+    val coverageMap: Map<String, Boolean> // date -> lunas (true) or not (false, meaning arrears)
+)
 
 class JimpitanRepository(
     private val api: SupabaseService,
@@ -21,6 +37,8 @@ class JimpitanRepository(
     var accessToken: String? = null
     var userId: String? = null
     var userRole: String? = null
+    var userName: String? = null
+    var userEmail: String? = null
 
     val allWarga = dao.getAllWarga()
     val allPembayaran = dao.getAllPembayaran()
@@ -29,59 +47,81 @@ class JimpitanRepository(
     fun getPaidCount(date: String): Flow<Int> = dao.getPaidCountByDate(date)
     fun getArrearsCount(date: String): Flow<Int> = dao.getArrearsCountByDate(date)
     fun getArrearsWarga(date: String): Flow<List<com.example.data.local.entity.WargaEntity>> = dao.getArrearsWargaByDate(date)
+    fun getRevenueInRange(startDate: String, endDate: String): Flow<Int?> = dao.getRevenueInRange(startDate, endDate)
 
+    private val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+
+    private fun todayStr() = sdf.format(Date())
+
+    // ─── Login ────────────────────────────────────────────────────────────────
+
+    /**
+     * Login memerlukan internet. Setelah berhasil, data warga, pembayaran, dan coverage
+     * diunduh ke Room sehingga session berikutnya bisa offline.
+     * Return false jika gagal (termasuk jika tidak ada internet).
+     */
     suspend fun login(email: String, pass: String): Boolean {
-        if (email.equals("admin", ignoreCase = true) || (email.equals("admin@gempala.com", ignoreCase = true) && pass == "gempala2026")) {
-            accessToken = "dummy_token"
-            userId = "dummy_admin_id"
-            userRole = "ADMIN"
-            return true
-        } else if (email.equals("petugas", ignoreCase = true)) {
-            accessToken = "dummy_token"
-            userId = "dummy_petugas_id"
-            userRole = "PETUGAS"
-            return true
-        }
         return try {
             val res = api.login(apiKey, AuthRequest(email, pass))
             accessToken = res.access_token
             userId = res.user.id
-            
-            // Query profiles table to find the role
+            userEmail = res.user.email ?: email
+
             val authHeader = "Bearer ${res.access_token}"
             val profiles = api.getProfile(apiKey, authHeader, "eq.${res.user.id}")
-            userRole = profiles.firstOrNull()?.role ?: "PETUGAS"
+            val profile = profiles.firstOrNull()
+            userRole = profile?.role ?: "PETUGAS"
+            userName = profile?.nama ?: email.substringBefore("@").replaceFirstChar { it.uppercase() }
             true
+        } catch (e: java.net.UnknownHostException) {
+            // No internet at all
+            false
+        } catch (e: java.net.ConnectException) {
+            false
+        } catch (e: retrofit2.HttpException) {
+            // Auth failed (wrong credentials etc)
+            false
         } catch (e: Exception) {
             e.printStackTrace()
-            // Fallback for MVP if offline
-            accessToken = "dummy_token"
-            userId = "dummy_user"
-            userRole = if (email.contains("admin", ignoreCase = true)) "ADMIN" else "PETUGAS"
-            true
+            false
         }
     }
 
+
+    // ─── Petugas ──────────────────────────────────────────────────────────────
+
     suspend fun savePetugas(email: String, nama: String, pass: String): Boolean {
         if (accessToken != null && accessToken != "dummy_token") {
-            try {
+            return try {
                 val req = com.example.data.remote.SignUpRequest(
                     email = email,
                     password = pass,
                     data = mapOf("nama" to nama, "role" to "PETUGAS")
                 )
                 api.signUp(apiKey, req)
-                return true
+                true
             } catch (e: Exception) {
                 e.printStackTrace()
-                return false
+                false
             }
         }
         return true
     }
 
+    suspend fun fetchPetugas(): List<ProfileDto> {
+        if (accessToken == null || accessToken == "dummy_token") return emptyList()
+        return try {
+            val authHeader = "Bearer $accessToken"
+            api.getPetugas(apiKey, authHeader)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+    }
+
+    // ─── Warga ────────────────────────────────────────────────────────────────
+
     suspend fun fetchWarga() {
-        // Fallback for MVP if supabase is not fully configured or empty
         val seedData = listOf(
             com.example.data.local.entity.WargaEntity("1", "WRG001", "Edi Subekti", "03", "01", "009", "Jl. Mawar No. 9", true, 0),
             com.example.data.local.entity.WargaEntity("2", "WRG002", "Samiri", "03", "01", "008", "Jl. Mawar No. 8", true, 0),
@@ -120,8 +160,53 @@ class JimpitanRepository(
             dao.insertWargaList(seedData)
         } catch (e: Exception) {
             e.printStackTrace()
-            // On failure, load seed data to make the MVP run offline without backend setup
             dao.insertWargaList(seedData)
+        }
+    }
+
+    suspend fun fetchPembayaranFromServer() {
+        if (accessToken == null || accessToken == "dummy_token") return
+        try {
+            val authHeader = "Bearer $accessToken"
+            val remotePembayaran = api.getPembayaran(apiKey, authHeader)
+            if (remotePembayaran.isNotEmpty()) {
+                val entities = remotePembayaran.map { dto ->
+                    PembayaranEntity(
+                        serverId = dto.id,
+                        wargaId = dto.warga_id,
+                        nominal = dto.nominal,
+                        coverageDays = dto.coverage_days,
+                        tanggalBayar = dto.tanggal_bayar,
+                        createdBy = dto.created_by,
+                        syncStatus = "SYNCED"
+                    )
+                }
+                dao.insertPembayaranList(entities)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    suspend fun fetchCoverageHistoryFromServer() {
+        if (accessToken == null || accessToken == "dummy_token") return
+        try {
+            val authHeader = "Bearer $accessToken"
+            val remoteCoverage = api.getCoverageHistory(apiKey, authHeader)
+            if (remoteCoverage.isNotEmpty()) {
+                val entities = remoteCoverage.map { dto ->
+                    CoverageHistoryEntity(
+                        id = dto.id,
+                        wargaId = dto.warga_id,
+                        paymentId = dto.payment_id,
+                        paymentLocalId = null,
+                        tanggalKewajiban = dto.tanggal_kewajiban
+                    )
+                }
+                dao.insertCoverageHistoryList(entities)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
@@ -198,10 +283,21 @@ class JimpitanRepository(
         return true
     }
 
-    suspend fun savePembayaran(wargaId: String, nominal: Int) {
+    // ─── Pembayaran ───────────────────────────────────────────────────────────
+
+    /**
+     * Returns true if payment was saved, false if warga already has coverage today (double-pay prevention).
+     */
+    suspend fun savePembayaran(wargaId: String, nominal: Int): Boolean {
+        val today = todayStr()
+
+        // Anti double-bayar: cek apakah warga sudah punya coverage hari ini
+        val existingToday = dao.hasCoverageOnDate(wargaId, today)
+        if (existingToday > 0) {
+            return false // Already paid today
+        }
+
         val coverageDays = nominal / 500
-        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-        val today = sdf.format(Date())
 
         val idLocal = dao.insertPembayaran(
             PembayaranEntity(
@@ -215,15 +311,27 @@ class JimpitanRepository(
             )
         )
 
-        // Hitung Coverage: FIFO
-        // Simplified approach: find latest coverage and append from there or today.
-        val existingCoverages = dao.getCoverageByWarga(wargaId)
-        val startDateStr = existingCoverages.firstOrNull()?.tanggalKewajiban ?: today
-
+        // Hitung Coverage FIFO
+        val lastCoverage = dao.getLastCoverageDate(wargaId)
         val cal = Calendar.getInstance()
-        cal.time = sdf.parse(startDateStr)!!
-        if (existingCoverages.isNotEmpty()) {
-            cal.add(Calendar.DAY_OF_MONTH, 1) // start from next day
+        if (lastCoverage != null) {
+            val lastDate = sdf.parse(lastCoverage)
+            if (lastDate != null) {
+                cal.time = lastDate
+                // Check if last coverage is in the past — if so, check for gaps
+                val todayCal = Calendar.getInstance()
+                if (cal.before(todayCal)) {
+                    // Last coverage is in the past; start from today
+                    cal.time = sdf.parse(today)!!
+                } else {
+                    // Last coverage is today or future; continue from next day
+                    cal.add(Calendar.DAY_OF_MONTH, 1)
+                }
+            } else {
+                cal.time = sdf.parse(today)!!
+            }
+        } else {
+            cal.time = sdf.parse(today)!!
         }
 
         for (i in 0 until coverageDays) {
@@ -239,7 +347,87 @@ class JimpitanRepository(
             )
             cal.add(Calendar.DAY_OF_MONTH, 1)
         }
+
+        return true
     }
+
+    suspend fun getLastCoverageDate(wargaId: String): String? = dao.getLastCoverageDate(wargaId)
+
+    suspend fun hasCoverageToday(wargaId: String): Boolean {
+        return dao.hasCoverageOnDate(wargaId, todayStr()) > 0
+    }
+
+    // ─── Warga Detail ─────────────────────────────────────────────────────────
+
+    suspend fun getWargaDetail(wargaId: String, year: Int, month: Int): WargaDetailData? {
+        val warga = dao.getWargaById(wargaId) ?: return null
+
+        val cal = Calendar.getInstance()
+        cal.set(year, month - 1, 1)
+        val startDate = sdf.format(cal.time)
+        cal.set(year, month - 1, cal.getActualMaximum(Calendar.DAY_OF_MONTH))
+        val endDate = sdf.format(cal.time)
+
+        val coverageInMonth = dao.getCoverageInRange(wargaId, startDate, endDate)
+        val paidDates = coverageInMonth.map { it.tanggalKewajiban }.toSet()
+
+        // Build coverage map for the whole month
+        val coverageMap = mutableMapOf<String, Boolean>()
+        val dayCal = Calendar.getInstance()
+        dayCal.set(year, month - 1, 1)
+        val today = todayStr()
+        while (sdf.format(dayCal.time) <= today) {
+            val dateStr = sdf.format(dayCal.time)
+            if (sdf.format(dayCal.time) > endDate) break
+            coverageMap[dateStr] = paidDates.contains(dateStr)
+            dayCal.add(Calendar.DAY_OF_MONTH, 1)
+        }
+
+        val totalLunas = dao.getTotalLunasByWarga(wargaId)
+        val totalNominal = dao.getTotalNominalByWarga(wargaId) ?: 0
+        val lastCoverage = dao.getLastCoverageDate(wargaId)
+
+        return WargaDetailData(
+            warga = warga,
+            totalLunasDays = totalLunas,
+            totalNominal = totalNominal,
+            lastCoverageDate = lastCoverage,
+            coverageMap = coverageMap
+        )
+    }
+
+    // ─── Arrears Detail ───────────────────────────────────────────────────────
+
+    suspend fun buildArrearsInfo(warga: com.example.data.local.entity.WargaEntity): WargaArrearsInfo {
+        val lastCoverage = dao.getLastCoverageDate(warga.id)
+        val today = todayStr()
+
+        val arrearsdays = if (lastCoverage == null) {
+            // Never paid: count days from beginning of current month
+            val cal = Calendar.getInstance()
+            cal.set(Calendar.DAY_OF_MONTH, 1)
+            val monthStart = sdf.format(cal.time)
+            val diffMs = sdf.parse(today)!!.time - sdf.parse(monthStart)!!.time
+            (diffMs / (1000 * 60 * 60 * 24)).toInt() + 1
+        } else if (lastCoverage < today) {
+            val diffMs = sdf.parse(today)!!.time - sdf.parse(lastCoverage)!!.time
+            (diffMs / (1000 * 60 * 60 * 24)).toInt()
+        } else {
+            0
+        }
+
+        // Get last payment date
+        val lastPayment = dao.getPembayaranByWarga(warga.id)
+
+        return WargaArrearsInfo(
+            warga = warga,
+            arrearsdays = arrearsdays,
+            lastPaymentDate = null, // will be populated from flow in ViewModel
+            lastCoverageDate = lastCoverage
+        )
+    }
+
+    // ─── Sync ─────────────────────────────────────────────────────────────────
 
     suspend fun syncPending() {
         if (accessToken == null || accessToken == "dummy_token") return
@@ -248,7 +436,6 @@ class JimpitanRepository(
 
         for (p in pending) {
             try {
-                // Sync Pembayaran
                 val pReq = PembayaranDto(
                     warga_id = p.wargaId,
                     nominal = p.nominal,
@@ -258,10 +445,9 @@ class JimpitanRepository(
                 )
                 val pRes = api.insertPembayaran(apiKey, authHeader, req = pReq)
                 val sId = pRes.firstOrNull()?.id ?: continue
-                
+
                 dao.updatePembayaranStatus(p.idLocal, "SYNCED", sId)
 
-                // Sync Coverage
                 val localCoverages = dao.getCoverageByLocalPaymentId(p.idLocal)
                 var coverageConflict = false
                 for (c in localCoverages) {

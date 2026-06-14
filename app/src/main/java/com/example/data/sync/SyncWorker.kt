@@ -13,6 +13,9 @@ class SyncWorker(
     override suspend fun doWork(): Result {
         val repository = Injection.provideRepository(applicationContext)
         return try {
+            repository.fetchWarga()
+            repository.fetchPembayaranFromServer()
+            repository.fetchCoverageHistoryFromServer()
             repository.syncPending()
             Result.success()
         } catch (e: Exception) {

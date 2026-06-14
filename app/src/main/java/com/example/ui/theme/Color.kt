@@ -2,24 +2,30 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val PrimaryGreen = Color(0xFF3ECF8E)
-val OnPrimaryGreen = Color(0xFF00391C)
-val BackgroundLight = Color(0xFFFDFBFF)
-val SurfaceLight = Color(0xFFFFFFFF)
-val TextPrimary = Color(0xFF1A1C1E)
-val TextSecondary = Color(0xFF44474E)
+// Primary Green Palette
+val PrimaryGreen = Color(0xFF138A4A)
+val GreenDark = Color(0xFF0F6E3B)
+val GreenLight = Color(0xFF1DB060)
+val GreenSurface = Color(0xFFE8F5EE)
+val GreenOnSurface = Color(0xFF0A5C32)
 
-val SurfaceVariantLight = Color(0xFFE0E2EC)
-val OnSurfaceVariantLight = Color(0xFF44474E)
-
-val SuccessGreen = Color(0xFF3ECF8E)
+// Semantic Colors
+val SuccessGreen = Color(0xFF2E7D32)
 val ErrorRed = Color(0xFFBA1A1A)
-val WarningYellow = Color(0xFFFFB300)
+val WarningAmber = Color(0xFFF4900C)
+val InfoBlue = Color(0xFF1565C0)
 
-val BackgroundDark = Color(0xFF1A1C1E)
-val SurfaceDark = Color(0xFF1A1C1E)
-val TextPrimaryDark = Color(0xFFFDFBFF)
-val TextSecondaryDark = Color(0xFFC4C6D0)
-val SurfaceVariantDark = Color(0xFF44474E)
-val OnSurfaceVariantDark = Color(0xFFC4C6D0)
+// Light Theme
+val BackgroundLight = Color(0xFFF6F8F7)
+val SurfaceLight = Color(0xFFFFFFFF)
+val SurfaceVariantLight = Color(0xFFF0F4F1)
+val OnPrimaryGreen = Color(0xFFFFFFFF)
+val TextPrimary = Color(0xFF1A1C1B)
+val OnSurfaceVariantLight = Color(0xFF404944)
 
+// Dark Theme
+val BackgroundDark = Color(0xFF191C1B)
+val SurfaceDark = Color(0xFF2A2D2C)
+val SurfaceVariantDark = Color(0xFF3F4945)
+val TextPrimaryDark = Color(0xFFE1E3E1)
+val OnSurfaceVariantDark = Color(0xFFBFC9C3)
