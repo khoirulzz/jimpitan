@@ -33,16 +33,15 @@ jobs:
         SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
       run: |
-        if [ -z "$SUPABASE_URL" ]; then
-          echo "ERROR: SUPABASE_URL secret is empty or missing! Please add it to Repository Secrets."
-          exit 1
-        fi
+        # We hardcode the Supabase URL and Anon Key because they are public frontend keys.
+        echo "SUPABASE_URL=https://jswqjcigdqagvzxyggma.supabase.co" > .env
+        echo "SUPABASE_ANON_KEY=sb_publishable_sBGYIzHY_6zS-U2404bEvw_QRAdZ3sv" >> .env
+        
+        # KEYSTORE is highly sensitive, so we MUST use the GitHub Secret.
         if [ -z "$KEYSTORE_BASE64" ]; then
-          echo "ERROR: KEYSTORE_BASE64 secret is empty or missing!"
+          echo "ERROR: KEYSTORE_BASE64 secret is empty!"
           exit 1
         fi
-        echo "SUPABASE_URL=$SUPABASE_URL" > .env
-        echo "SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" >> .env
         echo "$KEYSTORE_BASE64" | base64 --decode > my-upload-key.jks
 
     - name: Grant Execute Permission to Gradlew
