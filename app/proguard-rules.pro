@@ -22,6 +22,10 @@
 # QRCode
 -keep class io.github.g0dkar.qrcode.** { *; }
 
+# CameraX & ML Kit
+-keep class androidx.camera.** { *; }
+-keep class com.google.mlkit.** { *; }
+
 # Debugging information (opsional, disarankan agar error log tetap terbaca)
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
