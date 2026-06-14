@@ -61,30 +61,17 @@ class JimpitanRepository(
      * Return false jika gagal (termasuk jika tidak ada internet).
      */
     suspend fun login(email: String, pass: String): Boolean {
-        return try {
-            val res = api.login(apiKey, AuthRequest(email, pass))
-            accessToken = res.access_token
-            userId = res.user.id
-            userEmail = res.user.email ?: email
+        val res = api.login(apiKey, AuthRequest(email, pass))
+        accessToken = res.access_token
+        userId = res.user.id
+        userEmail = res.user.email ?: email
 
-            val authHeader = "Bearer ${res.access_token}"
-            val profiles = api.getProfile(apiKey, authHeader, "eq.${res.user.id}")
-            val profile = profiles.firstOrNull()
-            userRole = profile?.role ?: "PETUGAS"
-            userName = profile?.nama ?: email.substringBefore("@").replaceFirstChar { it.uppercase() }
-            true
-        } catch (e: java.net.UnknownHostException) {
-            // No internet at all
-            false
-        } catch (e: java.net.ConnectException) {
-            false
-        } catch (e: retrofit2.HttpException) {
-            // Auth failed (wrong credentials etc)
-            false
-        } catch (e: Exception) {
-            e.printStackTrace()
-            false
-        }
+        val authHeader = "Bearer ${res.access_token}"
+        val profiles = api.getProfile(apiKey, authHeader, "eq.${res.user.id}")
+        val profile = profiles.firstOrNull()
+        userRole = profile?.role ?: "PETUGAS"
+        userName = profile?.nama ?: email.substringBefore("@").replaceFirstChar { it.uppercase() }
+        return true
     }
 
 

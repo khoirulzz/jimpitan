@@ -164,33 +164,36 @@ class JimpitanViewModel(
     fun login(email: String, pass: String) {
         _loginState.value = LoginState.Loading
         viewModelScope.launch {
-            val success = repository.login(email, pass)
-            if (success) {
-                userRole.value = repository.userRole
-                userName.value = repository.userName
-                userEmail.value = repository.userEmail
-                // Save session for offline access
-                sessionManager.saveSession(
-                    token = repository.accessToken ?: "",
-                    userId = repository.userId ?: "",
-                    role = repository.userRole ?: "PETUGAS",
-                    name = repository.userName ?: "",
-                    email = repository.userEmail ?: email
-                )
-                _loginState.value = LoginState.Success
-                // Unduh data master warga, pembayaran, coverage ke Room lokal
-                // agar fitur offline (scan) bisa berjalan setelah ini
-                _isSyncing.value = true
-                try {
-                    repository.fetchWarga()
-                    repository.fetchPembayaranFromServer()
-                    repository.fetchCoverageHistoryFromServer()
-                } finally {
-                    _isSyncing.value = false
+            try {
+                val success = repository.login(email, pass)
+                if (success) {
+                    userRole.value = repository.userRole
+                    userName.value = repository.userName
+                    userEmail.value = repository.userEmail
+                    // Save session for offline access
+                    sessionManager.saveSession(
+                        token = repository.accessToken ?: "",
+                        userId = repository.userId ?: "",
+                        role = repository.userRole ?: "PETUGAS",
+                        name = repository.userName ?: "",
+                        email = repository.userEmail ?: email
+                    )
+                    _loginState.value = LoginState.Success
+                    // Unduh data master warga, pembayaran, coverage ke Room lokal
+                    // agar fitur offline (scan) bisa berjalan setelah ini
+                    _isSyncing.value = true
+                    try {
+                        repository.fetchWarga()
+                        repository.fetchPembayaranFromServer()
+                        repository.fetchCoverageHistoryFromServer()
+                    } finally {
+                        _isSyncing.value = false
+                    }
                 }
-            } else {
+            } catch (e: Exception) {
+                e.printStackTrace()
                 _loginState.value = LoginState.Error(
-                    "Login gagal. Pastikan koneksi internet aktif dan email/password benar."
+                    "Login gagal: ${e.message ?: "Unknown Error"}"
                 )
             }
         }
