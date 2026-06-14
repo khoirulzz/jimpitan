@@ -27,6 +27,19 @@ fun AppNavGraph(
     val userRole by viewModel.userRole.collectAsState()
     var startRoute by remember { mutableStateOf("splash") }
 
+    val updateAvailable by viewModel.updateAvailable.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.checkForUpdate(com.example.BuildConfig.VERSION_CODE)
+    }
+
+    if (updateAvailable != null) {
+        com.example.ui.components.UpdateDialog(
+            updateInfo = updateAvailable!!,
+            onDismiss = { viewModel.dismissUpdate() }
+        )
+    }
+
     NavHost(
         navController = navController,
         startDestination = startRoute,

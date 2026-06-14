@@ -478,4 +478,18 @@ class JimpitanRepository(
             }
         }
     }
+
+    // ─── OTA Update ───────────────────────────────────────────────────────────
+    suspend fun checkAppUpdate(currentVersionCode: Int): com.example.data.remote.AppVersionDto? {
+        return try {
+            val versions = api.getLatestVersion(apiKey)
+            val latest = versions.firstOrNull()
+            if (latest != null && latest.versionCode > currentVersionCode) {
+                latest
+            } else null
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
 }

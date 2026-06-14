@@ -127,6 +127,22 @@ class JimpitanViewModel(
         initialValue = emptyList()
     )
 
+    // ─── OTA Updater ──────────────────────────────────────────────────────────
+
+    private val _updateAvailable = MutableStateFlow<com.example.data.remote.AppVersionDto?>(null)
+    val updateAvailable: StateFlow<com.example.data.remote.AppVersionDto?> = _updateAvailable.asStateFlow()
+
+    fun checkForUpdate(currentVersionCode: Int) {
+        viewModelScope.launch {
+            val update = repository.checkAppUpdate(currentVersionCode)
+            _updateAvailable.value = update
+        }
+    }
+
+    fun dismissUpdate() {
+        _updateAvailable.value = null
+    }
+
     // ─── Session ──────────────────────────────────────────────────────────────
 
     fun checkSavedSession(): Boolean {

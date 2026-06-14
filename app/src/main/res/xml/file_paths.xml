@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Allow FileProvider to share APKs downloaded to the external files dir / Download directory -->
+    <external-path name="external_files" path="." />
+    <external-files-path name="external_files_dir" path="." />
+    <external-cache-path name="external_cache" path="." />
+    <cache-path name="cache" path="." />
+    
+    <!-- Specifically for DownloadManager -->
+    <external-path name="downloads" path="Download/" />
+</paths>
