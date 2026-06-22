@@ -9,6 +9,7 @@ import com.example.data.repository.JimpitanRepository
 import com.example.data.repository.WargaArrearsInfo
 import com.example.data.repository.WargaDetailData
 import com.example.util.SessionManager
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -50,8 +51,14 @@ class JimpitanViewModel(
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing = _isSyncing.asStateFlow()
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing = _isRefreshing.asStateFlow()
+
     private val _petugasList = MutableStateFlow<List<ProfileDto>>(emptyList())
     val petugasList = _petugasList.asStateFlow()
+
+    private val _petugasLoading = MutableStateFlow(false)
+    val petugasLoading = _petugasLoading.asStateFlow()
 
     private val _wargaDetail = MutableStateFlow<WargaDetailData?>(null)
     val wargaDetail = _wargaDetail.asStateFlow()
@@ -307,8 +314,21 @@ class JimpitanViewModel(
     }
 
     fun loadPetugas() {
+        _petugasLoading.value = true
         viewModelScope.launch {
-            _petugasList.value = repository.fetchPetugas()
+            try {
+                val result = repository.fetchPetugas()
+                _petugasList.value = result
+                // Retry once if empty (timing issue with Supabase trigger)
+                if (result.isEmpty()) {
+                    delay(1500)
+                    _petugasList.value = repository.fetchPetugas()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                _petugasLoading.value = false
+            }
         }
     }
 
@@ -384,6 +404,28 @@ class JimpitanViewModel(
                 e.printStackTrace()
             } finally {
                 _isSyncing.value = false
+            }
+        }
+    }
+
+    /**
+     * Pull-to-refresh: syncs all data and reloads petugas list.
+     */
+    fun pullRefresh() {
+        _isRefreshing.value = true
+        viewModelScope.launch {
+            try {
+                repository.fetchWarga()
+                repository.fetchPembayaranFromServer()
+                repository.fetchCoverageHistoryFromServer()
+                repository.syncPending()
+                // Also reload petugas for admin
+                val result = repository.fetchPetugas()
+                _petugasList.value = result
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                _isRefreshing.value = false
             }
         }
     }

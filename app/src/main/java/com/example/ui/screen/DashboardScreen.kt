@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,6 +43,7 @@ private fun getGreeting(): String {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     viewModel: JimpitanViewModel,
@@ -55,6 +57,7 @@ fun DashboardScreen(
     val todayArrearsCount by viewModel.todayArrearsCount.collectAsState()
     val isConnected by viewModel.isConnected.collectAsState()
     val isSyncing by viewModel.isSyncing.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
     val userName by viewModel.userName.collectAsState()
     val allPembayaran by viewModel.allPembayaran.collectAsState()
 
@@ -63,6 +66,12 @@ fun DashboardScreen(
     val displayName = userName ?: "Petugas"
 
     Box(modifier = Modifier.fillMaxSize().background(BackgroundWhite)) {
+        // ── Pull-to-Refresh wrapper ────────────────────────────────────────────
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = { viewModel.pullRefresh() },
+            modifier = Modifier.fillMaxSize()
+        ) {
         // ── Full-screen scrollable content ─────────────────────────────────────
         Column(
             modifier = Modifier
@@ -342,6 +351,7 @@ fun DashboardScreen(
                 Spacer(modifier = Modifier.height(100.dp)) // Nav bar bottom padding
             }
         }
+        } // end PullToRefreshBox
 
         // ── Syncing Overlay ────────────────────────────────────────────────────
         if (isSyncing) {

@@ -159,6 +159,14 @@ class JimpitanRepository(
         try {
             val authHeader = "Bearer $accessToken"
             val remotePembayaran = api.getPembayaran(apiKey, authHeader)
+
+            // Fetch all profiles to map createdBy UUID -> name
+            val profilesMap = try {
+                api.getPetugas(apiKey, authHeader).associateBy({ it.id }, { it.nama })
+            } catch (_: Exception) {
+                emptyMap()
+            }
+
             if (remotePembayaran.isNotEmpty()) {
                 val entities = remotePembayaran.map { dto ->
                     PembayaranEntity(
@@ -168,6 +176,7 @@ class JimpitanRepository(
                         coverageDays = dto.coverage_days,
                         tanggalBayar = dto.tanggal_bayar,
                         createdBy = dto.created_by,
+                        createdByName = profilesMap[dto.created_by] ?: "",
                         syncStatus = "SYNCED"
                     )
                 }
@@ -302,18 +311,52 @@ class JimpitanRepository(
     // ─── Pembayaran ───────────────────────────────────────────────────────────
 
     /**
-     * Returns true if payment was saved, false if warga already has coverage today (double-pay prevention).
+     * Saves a payment and allocates coverage days using FIFO logic:
+     * 1. If warga has never paid (lastCoverage == null): start from today
+     * 2. If warga has arrears (lastCoverage < today): start from lastCoverage+1 to cover oldest unpaid days first
+     * 3. If warga is already covered beyond today (lastCoverage >= today): extend from lastCoverage+1
+     *
+     * Returns true if payment was saved, false if all coverage dates already exist (true double-pay).
      */
     suspend fun savePembayaran(wargaId: String, nominal: Int): Boolean {
         val today = todayStr()
+        val coverageDays = nominal / 500
 
-        // Anti double-bayar: cek apakah warga sudah punya coverage hari ini
-        val existingToday = dao.hasCoverageOnDate(wargaId, today)
-        if (existingToday > 0) {
-            return false // Already paid today
+        // Determine coverage start date using FIFO logic
+        val lastCoverage = dao.getLastCoverageDate(wargaId)
+        val cal = Calendar.getInstance()
+
+        when {
+            lastCoverage == null -> {
+                // Never paid: start from today
+                cal.time = sdf.parse(today)!!
+            }
+            lastCoverage < today -> {
+                // Has arrears: start from day after last coverage (fills oldest gap first)
+                cal.time = sdf.parse(lastCoverage)!!
+                cal.add(Calendar.DAY_OF_MONTH, 1)
+            }
+            else -> {
+                // Already covered today or beyond: extend forward
+                cal.time = sdf.parse(lastCoverage)!!
+                cal.add(Calendar.DAY_OF_MONTH, 1)
+            }
         }
 
-        val coverageDays = nominal / 500
+        // Check that at least one coverage date doesn't already exist (prevent true double-pay)
+        val proposedDates = mutableListOf<String>()
+        val tempCal = cal.clone() as Calendar
+        for (i in 0 until coverageDays) {
+            proposedDates.add(sdf.format(tempCal.time))
+            tempCal.add(Calendar.DAY_OF_MONTH, 1)
+        }
+
+        val allExist = proposedDates.all { date ->
+            dao.hasCoverageOnDate(wargaId, date) > 0
+        }
+        if (allExist && proposedDates.isNotEmpty()) {
+            return false // All dates already covered — true double-pay
+        }
 
         val idLocal = dao.insertPembayaran(
             PembayaranEntity(
@@ -323,47 +366,32 @@ class JimpitanRepository(
                 coverageDays = coverageDays,
                 tanggalBayar = today,
                 createdBy = userId ?: "unknown",
+                createdByName = userName ?: "",
                 syncStatus = "PENDING"
             )
         )
 
-        // Hitung Coverage FIFO
-        val lastCoverage = dao.getLastCoverageDate(wargaId)
-        val cal = Calendar.getInstance()
-        if (lastCoverage != null) {
-            val lastDate = sdf.parse(lastCoverage)
-            if (lastDate != null) {
-                cal.time = lastDate
-                // Check if last coverage is in the past — if so, check for gaps
-                val todayCal = Calendar.getInstance()
-                if (cal.before(todayCal)) {
-                    // Last coverage is in the past; continue from next day to cover arrears
-                    cal.add(Calendar.DAY_OF_MONTH, 1)
-                } else {
-                    // Last coverage is today or future; continue from next day
-                    cal.add(Calendar.DAY_OF_MONTH, 1)
-                }
-            } else {
-                cal.time = sdf.parse(today)!!
-            }
-        } else {
-            cal.time = sdf.parse(today)!!
-        }
-
+        // Insert coverage entries, skipping dates that already exist
         val coverageList = mutableListOf<CoverageHistoryEntity>()
         for (i in 0 until coverageDays) {
-            coverageList.add(
-                CoverageHistoryEntity(
-                    id = null,
-                    wargaId = wargaId,
-                    paymentId = null,
-                    paymentLocalId = idLocal,
-                    tanggalKewajiban = sdf.format(cal.time)
+            val dateStr = sdf.format(cal.time)
+            // Only add if date doesn't already have coverage (handles partial overlaps gracefully)
+            if (dao.hasCoverageOnDate(wargaId, dateStr) == 0) {
+                coverageList.add(
+                    CoverageHistoryEntity(
+                        id = null,
+                        wargaId = wargaId,
+                        paymentId = null,
+                        paymentLocalId = idLocal,
+                        tanggalKewajiban = dateStr
+                    )
                 )
-            )
+            }
             cal.add(Calendar.DAY_OF_MONTH, 1)
         }
-        dao.insertCoverageHistoryList(coverageList)
+        if (coverageList.isNotEmpty()) {
+            dao.insertCoverageHistoryList(coverageList)
+        }
         return true
     }
 

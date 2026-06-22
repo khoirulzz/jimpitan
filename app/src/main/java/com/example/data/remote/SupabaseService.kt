@@ -107,7 +107,7 @@ interface SupabaseService {
         @Query("id") idFilter: String
     ): List<ProfileDto>
 
-    @GET("rest/v1/profiles?select=*&role=eq.PETUGAS&order=created_at.asc")
+    @GET("rest/v1/profiles?select=*&order=created_at.asc")
     suspend fun getPetugas(
         @Header("apikey") apiKey: String,
         @Header("Authorization") auth: String

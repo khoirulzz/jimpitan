@@ -12,6 +12,7 @@ data class PembayaranEntity(
     val coverageDays: Int,
     val tanggalBayar: String, // format YYYY-MM-DD
     val createdBy: String,
+    val createdByName: String = "", // Nama petugas untuk tampilan offline
     val syncStatus: String, // PENDING, SYNCED, FAILED, CONFLICT
     val createdAt: Long = System.currentTimeMillis()
 )

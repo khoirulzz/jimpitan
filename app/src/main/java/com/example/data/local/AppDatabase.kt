@@ -11,11 +11,12 @@ import com.example.data.local.entity.WargaEntity
 /**
  * Room Database definition.
  * version = 3: added Pengeluaran table for Buku Kas.
+ * version = 4: added createdByName to PembayaranEntity for offline petugas name display.
  * fallbackToDestructiveMigration() is set in Injection.kt so no manual Migration class needed.
  */
 @Database(
     entities = [WargaEntity::class, PembayaranEntity::class, CoverageHistoryEntity::class, PengeluaranEntity::class],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

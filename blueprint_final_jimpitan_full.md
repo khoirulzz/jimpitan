@@ -241,7 +241,8 @@ Saat petugas menekan scanner:
 
 1. Kamera aktif.
 2. QR dipindai.
-3. Aplikasi membaca `JMP|UUID`.
+3. Aplikasi membunyikan suara "Beep".
+4. Aplikasi membaca `JMP|UUID`.
 4. Aplikasi mencari warga di database lokal.
 5. Jika ditemukan, tampilkan identitas warga.
 6. Jika tidak ditemukan, tampilkan pesan “warga tidak ditemukan”.
@@ -314,6 +315,7 @@ Saat tombol simpan ditekan:
 ## 7.7 Setelah simpan
 Setelah simpan sukses:
 
+- Aplikasi membunyikan notifikasi suara berhasil.
 - Tampil pesan berhasil.
 - Aplikasi kembali ke scanner.
 - Petugas bisa lanjut scan warga berikutnya tanpa banyak klik.
@@ -555,12 +557,13 @@ Dengan begitu, jika ada dua petugas offline mencatat warga yang sama, saat sync 
 
 ---
 
-## 11.3 Konflik sync
-Jika sync gagal karena data sudah ada di server:
+Jika sync gagal karena data sudah ada di server (misal: tanggal kewajiban tersebut sudah dilunasi oleh petugas lain secara offline):
 
-- status transaksi menjadi `CONFLICT`
-- petugas dapat melihat alasan konflik
-- admin dapat mengecek log konflik
+- Konflik dideteksi secara Atomic menggunakan PostgreSQL RPC (`sync_pembayaran_offline`).
+- Transaksi tetap disimpan di tabel `pembayaran` pada server, namun dengan `sync_status = 'CONFLICT'`.
+- Transaksi konflik TIDAK dimasukkan ke tabel `coverage_history`.
+- Di lokal Android, status transaksi menjadi `CONFLICT` dan petugas dapat melihat alasan konflik.
+- Admin dapat mengecek laporan transaksi di dashboard dan melihat transaksi mana saja yang berstatus `CONFLICT`.
 
 ---
 

@@ -24,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,6 +43,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import com.example.data.local.entity.WargaEntity
 import com.example.data.remote.ProfileDto
 import com.example.data.repository.WargaArrearsInfo
+import com.example.data.local.entity.PembayaranEntity
 import com.example.ui.viewmodel.JimpitanViewModel
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import io.github.g0dkar.qrcode.QRCode
@@ -75,7 +77,9 @@ fun AdminDashboardScreen(
     val arrearsWarga by viewModel.arrearsWargaList.collectAsState()
     val arrearsInfoList by viewModel.arrearsInfoList.collectAsState()
     val isSyncing by viewModel.isSyncing.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
     val petugasList by viewModel.petugasList.collectAsState()
+    val petugasLoading by viewModel.petugasLoading.collectAsState()
 
     var selectedTab by remember { mutableStateOf(0) }
     var showAddWargaDialog by remember { mutableStateOf(false) }
@@ -89,9 +93,12 @@ fun AdminDashboardScreen(
         if (arrearsWarga.isNotEmpty()) viewModel.buildArrearsInfoList(arrearsWarga)
     }
 
-    // Load petugas when tab selected
+    // Load petugas on init and when tab selected
+    LaunchedEffect(Unit) {
+        viewModel.loadPetugas()
+    }
     LaunchedEffect(selectedTab) {
-        if (selectedTab == 4) viewModel.loadPetugas()
+        if (selectedTab == 4 || selectedTab == 5) viewModel.loadPetugas()
     }
 
     val excelPickerLauncher = rememberLauncherForActivityResult(
@@ -108,6 +115,11 @@ fun AdminDashboardScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize().background(BackgroundWhite)) {
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = { viewModel.pullRefresh() },
+            modifier = Modifier.fillMaxSize()
+        ) {
         Column(modifier = Modifier.fillMaxSize()) {
 
             // ── Green Header ──────────────────────────────────────────────────
@@ -239,6 +251,14 @@ fun AdminDashboardScreen(
                     selectedContentColor = GreenPrimary,
                     unselectedContentColor = Color.Gray
                 )
+                Tab(
+                    selected = selectedTab == 5,
+                    onClick = { selectedTab = 5 },
+                    text = { Text("Riwayat", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
+                    icon = { Icon(Icons.Outlined.Receipt, null, modifier = Modifier.size(18.dp)) },
+                    selectedContentColor = GreenPrimary,
+                    unselectedContentColor = Color.Gray
+                )
             }
 
             // ── Tab Content ───────────────────────────────────────────────────
@@ -273,11 +293,21 @@ fun AdminDashboardScreen(
                     )
                     4 -> OfficersTabContent(
                         petugasList = petugasList,
+                        petugasLoading = petugasLoading,
                         onAddPetugas = { showAddPetugasDialog = true }
+                    )
+                    5 -> TransactionHistoryTabContent(
+                        allPembayaran = allPembayaran,
+                        wargaList = wargaList,
+                        petugasList = petugasList,
+                        onTransactionClick = { pembayaran ->
+                            onNavigateWargaDetail(pembayaran.wargaId)
+                        }
                     )
                 }
             }
         }
+        } // end PullToRefreshBox
 
         // FAB for tab 3
         if (selectedTab == 3) {
@@ -687,6 +717,7 @@ fun WargaListCard(
 @Composable
 fun OfficersTabContent(
     petugasList: List<ProfileDto>,
+    petugasLoading: Boolean,
     onAddPetugas: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
@@ -699,7 +730,7 @@ fun OfficersTabContent(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                "${petugasList.size} Petugas Terdaftar",
+                "${petugasList.size} Akun Terdaftar",
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 14.sp,
                 color = Color.DarkGray
@@ -716,56 +747,75 @@ fun OfficersTabContent(
             }
         }
 
-        if (petugasList.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Outlined.Badge, null, tint = Color.Gray.copy(0.4f), modifier = Modifier.size(56.dp))
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Belum ada petugas terdaftar", color = Color.Gray)
-                    Text("atau sedang memuat...", color = Color.Gray, fontSize = 12.sp)
+        when {
+            petugasLoading -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator(color = GreenPrimary, modifier = Modifier.size(40.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text("Memuat daftar petugas...", color = Color.Gray, fontSize = 13.sp)
+                    }
                 }
             }
-        } else {
-            LazyColumn(
-                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxSize()
-            ) {
-                items(petugasList) { petugas ->
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
+            petugasList.isEmpty() -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Outlined.Badge, null, tint = Color.Gray.copy(0.4f), modifier = Modifier.size(56.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Belum ada petugas terdaftar", color = Color.Gray)
+                        Text("Tarik ke bawah untuk refresh", color = Color.Gray, fontSize = 12.sp)
+                    }
+                }
+            }
+            else -> {
+                LazyColumn(
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    items(petugasList) { petugas ->
+                        val isAdmin = petugas.role == "ADMIN"
+                        val roleColor = if (isAdmin) Color(0xFF1B68A0) else GreenPrimary
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                            shape = RoundedCornerShape(16.dp)
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .background(GreenPrimary.copy(0.1f), CircleShape),
-                                contentAlignment = Alignment.Center
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    petugas.nama.take(1).uppercase(),
-                                    fontWeight = FontWeight.Bold,
-                                    color = GreenPrimary,
-                                    fontSize = 18.sp
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(petugas.nama, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color.DarkGray)
-                                Text(petugas.id.take(20) + "...", fontSize = 11.sp, color = Color.Gray)
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .background(GreenPrimary.copy(0.1f), RoundedCornerShape(8.dp))
-                                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                            ) {
-                                Text("Petugas", color = GreenPrimary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                Box(
+                                    modifier = Modifier
+                                        .size(44.dp)
+                                        .background(roleColor.copy(0.1f), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        petugas.nama.take(1).uppercase(),
+                                        fontWeight = FontWeight.Bold,
+                                        color = roleColor,
+                                        fontSize = 18.sp
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(petugas.nama, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color.DarkGray)
+                                    Text(petugas.id.take(20) + "...", fontSize = 11.sp, color = Color.Gray)
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .background(roleColor.copy(0.1f), RoundedCornerShape(8.dp))
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Text(
+                                        if (isAdmin) "Admin" else "Petugas",
+                                        color = roleColor,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
                             }
                         }
                     }
@@ -1570,4 +1620,263 @@ fun AddPengeluaranDialog(
             TextButton(onClick = onDismiss) { Text("Batal", color = Color.Gray) }
         }
     )
+}
+
+// ─── Transaction History Tab Content ──────────────────────────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TransactionHistoryTabContent(
+    allPembayaran: List<PembayaranEntity>,
+    wargaList: List<WargaEntity>,
+    petugasList: List<ProfileDto>,
+    onTransactionClick: (PembayaranEntity) -> Unit
+) {
+    val displaySdf = remember { SimpleDateFormat("dd MMM yyyy", Locale("id", "ID")) }
+    val parserSdf = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
+
+    // Maps for lookup
+    val wargaMap = remember(wargaList) { wargaList.associateBy { it.id } }
+    val petugasMap = remember(petugasList) { petugasList.associateBy({ it.id }, { it.nama }) }
+
+    // ── Filter state ──
+    var dateFilter by remember { mutableStateOf("Semua") }
+    var petugasFilter by remember { mutableStateOf("Semua") }
+    var statusFilter by remember { mutableStateOf("Semua") }
+
+    val dateFilterOptions = listOf("Semua", "Hari Ini", "Minggu Ini", "Bulan Ini")
+    val statusFilterOptions = listOf("Semua", "SYNCED", "PENDING", "CONFLICT")
+
+    val petugasFilterOptions = remember(petugasList) {
+        listOf("Semua") + petugasList.map { it.nama }.distinct()
+    }
+
+    val today = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()) }
+    val weekStart = remember {
+        val cal = Calendar.getInstance()
+        cal.set(Calendar.DAY_OF_WEEK, cal.firstDayOfWeek)
+        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(cal.time)
+    }
+    val monthStart = remember {
+        val cal = Calendar.getInstance()
+        cal.set(Calendar.DAY_OF_MONTH, 1)
+        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(cal.time)
+    }
+
+    val filtered = remember(allPembayaran, dateFilter, petugasFilter, statusFilter) {
+        allPembayaran
+            .filter { p ->
+                when (dateFilter) {
+                    "Hari Ini" -> p.tanggalBayar == today
+                    "Minggu Ini" -> p.tanggalBayar >= weekStart && p.tanggalBayar <= today
+                    "Bulan Ini" -> p.tanggalBayar >= monthStart && p.tanggalBayar <= today
+                    else -> true
+                }
+            }
+            .filter { p ->
+                if (petugasFilter == "Semua") true
+                else {
+                    val name = p.createdByName.ifBlank { petugasMap[p.createdBy] ?: "" }
+                    name == petugasFilter
+                }
+            }
+            .filter { p ->
+                if (statusFilter == "Semua") true else p.syncStatus == statusFilter
+            }
+            .sortedByDescending { it.createdAt }
+    }
+
+    val totalFiltered = remember(filtered) { filtered.sumOf { it.nominal } }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        // ── Filters ──
+        Column(modifier = Modifier.padding(12.dp)) {
+            // Date filter
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(dateFilterOptions) { opt ->
+                    FilterChip(
+                        selected = dateFilter == opt,
+                        onClick = { dateFilter = opt },
+                        label = { Text(opt, fontSize = 11.sp) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = GreenPrimary,
+                            selectedLabelColor = Color.White
+                        )
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            // Petugas filter
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(petugasFilterOptions) { opt ->
+                    FilterChip(
+                        selected = petugasFilter == opt,
+                        onClick = { petugasFilter = opt },
+                        label = { Text(if (opt == "Semua") "Semua Petugas" else opt, fontSize = 11.sp) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Color(0xFF1B68A0),
+                            selectedLabelColor = Color.White
+                        )
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            // Status filter
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(statusFilterOptions) { opt ->
+                    val chipColor = when (opt) {
+                        "SYNCED" -> GreenPrimary
+                        "CONFLICT" -> Color(0xFFBA1A1A)
+                        "PENDING" -> Color(0xFFF4900C)
+                        else -> Color.Gray
+                    }
+                    FilterChip(
+                        selected = statusFilter == opt,
+                        onClick = { statusFilter = opt },
+                        label = { Text(opt, fontSize = 11.sp) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = chipColor,
+                            selectedLabelColor = Color.White
+                        )
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            // Summary
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    "${filtered.size} transaksi",
+                    fontSize = 11.sp,
+                    color = Color.Gray,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    "Total: Rp%,d".format(totalFiltered),
+                    fontSize = 11.sp,
+                    color = GreenPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        if (filtered.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Outlined.Receipt, null, tint = Color.Gray.copy(0.4f), modifier = Modifier.size(56.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Tidak ada transaksi yang cocok", color = Color.Gray)
+                    Text("Coba ubah filter di atas", color = Color.Gray, fontSize = 12.sp)
+                }
+            }
+        } else {
+            LazyColumn(
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                items(filtered) { pembayaran ->
+                    val warga = wargaMap[pembayaran.wargaId]
+                    val wargaNama = warga?.nama ?: "Warga ID: ${pembayaran.wargaId.take(8)}"
+                    val petugasNama = pembayaran.createdByName.ifBlank {
+                        petugasMap[pembayaran.createdBy] ?: pembayaran.createdBy.take(8)
+                    }
+                    val tgl = runCatching {
+                        displaySdf.format(parserSdf.parse(pembayaran.tanggalBayar)!!)
+                    }.getOrDefault(pembayaran.tanggalBayar)
+
+                    val statusColor = when (pembayaran.syncStatus) {
+                        "SYNCED" -> GreenPrimary
+                        "CONFLICT" -> Color(0xFFBA1A1A)
+                        "PENDING" -> Color(0xFFF4900C)
+                        else -> Color.Gray
+                    }
+
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onTransactionClick(pembayaran) },
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Avatar
+                                Box(
+                                    modifier = Modifier
+                                        .size(42.dp)
+                                        .background(GreenPrimary.copy(0.1f), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        wargaNama.take(1).uppercase(),
+                                        fontWeight = FontWeight.Bold,
+                                        color = GreenPrimary,
+                                        fontSize = 16.sp
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(wargaNama, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.DarkGray)
+                                    Text(
+                                        "$tgl · ${pembayaran.coverageDays} hari",
+                                        fontSize = 11.sp,
+                                        color = Color.Gray
+                                    )
+                                }
+                                Text(
+                                    "Rp%,d".format(pembayaran.nominal),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = GreenPrimary
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Petugas info
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Outlined.Person,
+                                        null,
+                                        tint = Color.Gray,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        "Oleh: $petugasNama",
+                                        fontSize = 11.sp,
+                                        color = Color.Gray,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                                // Sync status badge
+                                Box(
+                                    modifier = Modifier
+                                        .background(statusColor.copy(0.1f), RoundedCornerShape(6.dp))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        pembayaran.syncStatus,
+                                        fontSize = 9.sp,
+                                        color = statusColor,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

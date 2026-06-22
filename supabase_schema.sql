@@ -33,7 +33,8 @@ CREATE TABLE IF NOT EXISTS public.pembayaran (
     coverage_days INTEGER NOT NULL CHECK (coverage_days > 0),
     tanggal_bayar DATE NOT NULL,
     created_by UUID REFERENCES auth.users(id),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    sync_status TEXT DEFAULT 'SYNCED' CHECK (sync_status IN ('SYNCED', 'CONFLICT', 'PENDING'))
 );
 
 -- 5. CREATE TABLE: coverage_history
@@ -192,4 +193,74 @@ CREATE POLICY "Allow update/delete pengeluaran for admin only"
 ON public.pengeluaran FOR ALL TO authenticated 
 USING ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'ADMIN')
 WITH CHECK ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'ADMIN');
+
+
+-- 13. VIEW: vw_laporan_transaksi
+-- View to simplify admin dashboard reporting and include Petugas info
+CREATE OR REPLACE VIEW public.vw_laporan_transaksi AS
+SELECT 
+    p.id AS payment_id,
+    w.qr_uuid AS id_warga,
+    w.nama AS nama_warga,
+    p.nominal,
+    p.coverage_days,
+    p.tanggal_bayar,
+    p.created_at,
+    p.sync_status,
+    pr.id AS id_petugas,
+    pr.nama AS nama_petugas
+FROM public.pembayaran p
+JOIN public.warga w ON p.warga_id = w.id
+JOIN public.profiles pr ON p.created_by = pr.id;
+
+-- GRANT PERMISSIONS FOR VIEW
+GRANT SELECT ON public.vw_laporan_transaksi TO authenticated, anon;
+
+
+-- 14. RPC: sync_pembayaran_offline
+-- Function to safely handle offline synchronization and detect conflicts
+CREATE OR REPLACE FUNCTION public.sync_pembayaran_offline(
+    p_id UUID,
+    p_warga_id UUID,
+    p_nominal INTEGER,
+    p_coverage_days INTEGER,
+    p_tanggal_bayar DATE,
+    p_created_by UUID,
+    p_created_at TIMESTAMP WITH TIME ZONE,
+    p_coverage_dates DATE[]
+) RETURNS TEXT AS $$
+DECLARE
+    v_conflict BOOLEAN := false;
+    v_date DATE;
+BEGIN
+    -- Check if any of the coverage dates already exist for this warga
+    FOREACH v_date IN ARRAY p_coverage_dates
+    LOOP
+        IF EXISTS (SELECT 1 FROM public.coverage_history WHERE warga_id = p_warga_id AND tanggal_kewajiban = v_date) THEN
+            v_conflict := true;
+            EXIT;
+        END IF;
+    END LOOP;
+
+    IF v_conflict THEN
+        -- Store as CONFLICT, do not insert into coverage_history
+        INSERT INTO public.pembayaran (id, warga_id, nominal, coverage_days, tanggal_bayar, created_by, created_at, sync_status)
+        VALUES (p_id, p_warga_id, p_nominal, p_coverage_days, p_tanggal_bayar, p_created_by, p_created_at, 'CONFLICT');
+        RETURN 'CONFLICT';
+    ELSE
+        -- Store as SYNCED
+        INSERT INTO public.pembayaran (id, warga_id, nominal, coverage_days, tanggal_bayar, created_by, created_at, sync_status)
+        VALUES (p_id, p_warga_id, p_nominal, p_coverage_days, p_tanggal_bayar, p_created_by, p_created_at, 'SYNCED');
+        
+        -- Insert coverage dates
+        FOREACH v_date IN ARRAY p_coverage_dates
+        LOOP
+            INSERT INTO public.coverage_history (warga_id, payment_id, tanggal_kewajiban)
+            VALUES (p_warga_id, p_id, v_date);
+        END LOOP;
+        
+        RETURN 'SYNCED';
+    END IF;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 

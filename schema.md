@@ -108,6 +108,7 @@ Fields:
 - tanggal_bayar (DATE)
 - created_by (UUID)
 - created_at (TIMESTAMP)
+- sync_status (TEXT: 'SYNCED', 'CONFLICT', 'PENDING')
 
 ---
 
@@ -207,3 +208,30 @@ Backend:
 
 Source of Truth:
 Supabase PostgreSQL
+
+---
+
+# Views & RPCs
+
+## View: vw_laporan_transaksi
+Mempermudah Admin untuk menarik laporan transaksi. View ini melakukan JOIN antara `pembayaran`, `warga`, dan `profiles` (petugas).
+Kolom:
+- payment_id
+- id_warga
+- nama_warga
+- nominal
+- coverage_days
+- tanggal_bayar
+- created_at
+- sync_status
+- id_petugas
+- nama_petugas
+
+## RPC: sync_pembayaran_offline
+Dipanggil oleh aplikasi Android saat melakukan sinkronisasi offline-ke-online.
+Fungsi ini bersifat Atomic:
+1. Menerima data transaksi (termasuk array `tanggal_kewajiban` yang dilunasi).
+2. Mengecek `coverage_history`. Jika salah satu tanggal sudah ada untuk warga tersebut, maka terjadi *double entry*.
+3. Jika KONFLIK: Transaksi disimpan ke tabel `pembayaran` dengan `sync_status = 'CONFLICT'` dan tidak dimasukkan ke `coverage_history`.
+4. Jika AMAN: Transaksi disimpan dengan `sync_status = 'SYNCED'` dan tabel `coverage_history` diisi.
+5. Mengembalikan string "SYNCED" atau "CONFLICT" ke aplikasi Android.
