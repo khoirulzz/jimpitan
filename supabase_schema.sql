@@ -72,47 +72,58 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authentic
 -- 8. CREATE RLS POLICIES
 
 -- Profiles:
+DROP POLICY IF EXISTS "Allow read profiles for authenticated users" ON public.profiles;
 CREATE POLICY "Allow read profiles for authenticated users" 
 ON public.profiles TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Allow update profiles for user owner or admin" ON public.profiles;
 CREATE POLICY "Allow update profiles for user owner or admin" 
 ON public.profiles FOR UPDATE TO authenticated 
 USING (auth.uid() = id OR (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'ADMIN');
 
 -- Warga:
+DROP POLICY IF EXISTS "Allow read warga for authenticated users" ON public.warga;
 CREATE POLICY "Allow read warga for authenticated users" 
 ON public.warga FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Allow write warga for admin only" ON public.warga;
 CREATE POLICY "Allow write warga for admin only" 
 ON public.warga FOR ALL TO authenticated 
 USING ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'ADMIN')
 WITH CHECK ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'ADMIN');
 
 -- Pembayaran:
+DROP POLICY IF EXISTS "Allow read pembayaran for authenticated users" ON public.pembayaran;
 CREATE POLICY "Allow read pembayaran for authenticated users" 
 ON public.pembayaran FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Allow insert pembayaran for authenticated users" ON public.pembayaran;
 CREATE POLICY "Allow insert pembayaran for authenticated users" 
 ON public.pembayaran FOR INSERT TO authenticated WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow delete/update pembayaran for admin only" ON public.pembayaran;
 CREATE POLICY "Allow delete/update pembayaran for admin only" 
 ON public.pembayaran FOR ALL TO authenticated 
 USING ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'ADMIN')
 WITH CHECK ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'ADMIN');
 
 -- Coverage History:
+DROP POLICY IF EXISTS "Allow read coverage_history for authenticated users" ON public.coverage_history;
 CREATE POLICY "Allow read coverage_history for authenticated users" 
 ON public.coverage_history FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Allow insert coverage_history for authenticated users" ON public.coverage_history;
 CREATE POLICY "Allow insert coverage_history for authenticated users" 
 ON public.coverage_history FOR INSERT TO authenticated WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow delete/update coverage_history for admin only" ON public.coverage_history;
 CREATE POLICY "Allow delete/update coverage_history for admin only" 
 ON public.coverage_history FOR ALL TO authenticated 
 USING ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'ADMIN')
 WITH CHECK ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'ADMIN');
 
 -- Sync Logs:
+DROP POLICY IF EXISTS "Allow all actions for authenticated users on sync_logs" ON public.sync_logs;
 CREATE POLICY "Allow all actions for authenticated users on sync_logs" 
 ON public.sync_logs FOR ALL TO authenticated USING (true);
 

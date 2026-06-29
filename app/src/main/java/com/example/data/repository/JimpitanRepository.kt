@@ -140,7 +140,8 @@ class JimpitanRepository(
                             nomorRumah = it.nomor_rumah,
                             alamat = it.alamat,
                             isActive = it.is_active,
-                            updatedAt = System.currentTimeMillis()
+                            updatedAt = System.currentTimeMillis(),
+                            noWa = it.no_wa
                         )
                     }
                     dao.insertWargaList(entities)
@@ -237,7 +238,7 @@ class JimpitanRepository(
 
     suspend fun getWargaByQr(qrText: String) = dao.getWargaByQr(qrText)
 
-    suspend fun saveWarga(nama: String, rt: String, rw: String, nomorRumah: String, alamat: String): Boolean {
+    suspend fun saveWarga(nama: String, rt: String, rw: String, nomorRumah: String, alamat: String, noWa: String? = null): Boolean {
         val count = dao.getWargaCount()
         val qrUuid = "WRG" + String.format(Locale.getDefault(), "%03d", count + 1)
         val newWarga = com.example.data.local.entity.WargaEntity(
@@ -249,7 +250,8 @@ class JimpitanRepository(
             nomorRumah = nomorRumah,
             alamat = alamat,
             isActive = true,
-            updatedAt = System.currentTimeMillis()
+            updatedAt = System.currentTimeMillis(),
+            noWa = noWa
         )
         dao.insertWargaList(listOf(newWarga))
 
@@ -265,7 +267,8 @@ class JimpitanRepository(
                     nomor_rumah = newWarga.nomorRumah,
                     alamat = newWarga.alamat,
                     is_active = newWarga.isActive,
-                    updated_at = ""
+                    updated_at = "",
+                    no_wa = newWarga.noWa
                 )
                 api.insertWarga(apiKey, authHeader, req = dto)
             } catch (e: Exception) {
@@ -297,7 +300,8 @@ class JimpitanRepository(
                         nomor_rumah = w.nomorRumah,
                         alamat = w.alamat,
                         is_active = w.isActive,
-                        updated_at = ""
+                        updated_at = "",
+                        no_wa = w.noWa
                     )
                     api.insertWarga(apiKey, authHeader, req = dto)
                 } catch (e: Exception) {

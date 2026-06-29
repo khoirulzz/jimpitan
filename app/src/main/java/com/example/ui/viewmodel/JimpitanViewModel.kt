@@ -299,9 +299,9 @@ class JimpitanViewModel(
 
     // ─── Warga Management ─────────────────────────────────────────────────────
 
-    fun addWarga(nama: String, rt: String, rw: String, nomorRumah: String, alamat: String, onSuccess: () -> Unit) {
+    fun addWarga(nama: String, rt: String, rw: String, nomorRumah: String, alamat: String, noWa: String?, onSuccess: () -> Unit) {
         viewModelScope.launch {
-            repository.saveWarga(nama, rt, rw, nomorRumah, alamat)
+            repository.saveWarga(nama, rt, rw, nomorRumah, alamat, noWa)
             onSuccess()
         }
     }

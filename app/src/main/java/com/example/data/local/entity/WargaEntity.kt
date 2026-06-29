@@ -13,5 +13,6 @@ data class WargaEntity(
     val nomorRumah: String,
     val alamat: String,
     val isActive: Boolean,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val noWa: String? = null
 )

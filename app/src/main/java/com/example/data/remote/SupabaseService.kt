@@ -19,7 +19,8 @@ data class WargaDto(
     val nomor_rumah: String,
     val alamat: String,
     val is_active: Boolean,
-    val updated_at: String
+    val updated_at: String,
+    val no_wa: String? = null
 )
 
 @JsonClass(generateAdapter = true)

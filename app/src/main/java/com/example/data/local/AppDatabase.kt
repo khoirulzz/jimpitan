@@ -16,7 +16,7 @@ import com.example.data.local.entity.WargaEntity
  */
 @Database(
     entities = [WargaEntity::class, PembayaranEntity::class, CoverageHistoryEntity::class, PengeluaranEntity::class],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

@@ -355,8 +355,8 @@ fun AdminDashboardScreen(
     if (showAddWargaDialog) {
         AddWargaDialog(
             onDismiss = { showAddWargaDialog = false },
-            onConfirm = { nama, rt, rw, nomorRumah, alamat ->
-                viewModel.addWarga(nama, rt, rw, nomorRumah, alamat) {
+            onConfirm = { nama, rt, rw, nomorRumah, alamat, noWa ->
+                viewModel.addWarga(nama, rt, rw, nomorRumah, alamat, noWa) {
                     showAddWargaDialog = false
                     viewModel.syncNow()
                 }
@@ -959,13 +959,14 @@ fun QrCodeDisplayDialog(
 @Composable
 fun AddWargaDialog(
     onDismiss: () -> Unit,
-    onConfirm: (String, String, String, String, String) -> Unit
+    onConfirm: (String, String, String, String, String, String?) -> Unit
 ) {
     var nama by remember { mutableStateOf("") }
     var rt by remember { mutableStateOf("03") }
     var rw by remember { mutableStateOf("01") }
     var nomorRumah by remember { mutableStateOf("") }
     var alamat by remember { mutableStateOf("") }
+    var noWa by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1027,13 +1028,23 @@ fun AddWargaDialog(
                         unfocusedTextColor = Color.DarkGray
                     )
                 )
+                OutlinedTextField(
+                    value = noWa, onValueChange = { noWa = it },
+                    label = { Text("No. WhatsApp (opsional, mis. 628...)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = GreenPrimary,
+                        focusedTextColor = Color.DarkGray,
+                        unfocusedTextColor = Color.DarkGray
+                    )
+                )
             }
         },
         confirmButton = {
             Button(
                 onClick = {
                     if (nama.isNotBlank() && rt.isNotBlank() && nomorRumah.isNotBlank()) {
-                        onConfirm(nama, rt, rw, nomorRumah, alamat)
+                        onConfirm(nama, rt, rw, nomorRumah, alamat, noWa.ifBlank { null })
                     }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)
